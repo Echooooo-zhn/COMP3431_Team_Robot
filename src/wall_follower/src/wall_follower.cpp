@@ -124,28 +124,34 @@ void WallFollower::update_callback()
 	switch (turtlebot3_state_num)
 	{
 		case GET_TB3_DIRECTION:
+
+			// Check if there is enough space in front 
 			if (scan_data_[CENTER] > check_forward_dist)
 			{
 				if (scan_data_[LEFT] < check_side_dist)
 				{
+					// If not enough space to the left, turn right
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_RIGHT_TURN;
+					RCLCPP_INFO(this->get_logger(), "RIGHT");
 				}
 				else if (scan_data_[RIGHT] < check_side_dist)
 				{
+					// If not enough space to the right, turn left
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_LEFT_TURN;
+					RCLCPP_INFO(this->get_logger(), "LEFT");
 				}
 				else
 				{
+					// There is lots of space left and right, drive forward
 					turtlebot3_state_num = TB3_DRIVE_FORWARD;
+					RCLCPP_INFO(this->get_logger(), "FORWARD");
 				}
-			}
-
-			if (scan_data_[CENTER] < check_forward_dist)
-			{
+			} else {
 				prev_robot_pose_ = robot_pose_;
 				turtlebot3_state_num = TB3_RIGHT_TURN;
+				RCLCPP_INFO(this->get_logger(), "U TURN");
 			}
 			break;
 
