@@ -111,10 +111,8 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 	cmd_vel_pub_->publish(cmd_vel);
 }
 
-
 /********************************************************************************
 ** Update functions
-** TurtleBot will follow the left wall to determine the action
 ********************************************************************************/
 void WallFollower::update_callback()
 {
@@ -122,66 +120,46 @@ void WallFollower::update_callback()
 	double escape_range = 30.0 * DEG2RAD;
 	double check_forward_dist = 0.7;
 	double check_side_dist = 0.6;
-	bool rotate_and_forward = false;
 
-	// Get the state of the turtlebot
 	switch (turtlebot3_state_num)
 	{
 		case GET_TB3_DIRECTION:
 
-			// If left wall detected
-			if (scan_data_[LEFT] < check_side_dist)
-			{
-				// If front wall detected, rotate right
-				if (scan_data_[CENTER] < check_forward_dist)
-				{
-					prev_robot_pose_ = robot_pose_;
-					turtlebot3_state_num = TB3_RIGHT_TURN;
-				}
-				// If front wall is not detected, move forward
-				else
-				{
-					turtlebot3_state_num = TB3_DRIVE_FORWARD;
-				}
-
-			}
-			// If left wall is not detected, rotate and move forward
-			else 
-			{
-				prev_robot_pose_ = robot_pose_;
-				
-				// If front wall is detected, rotated right
-				if (scan_data_[CENTER] < check_forward_dist)
-				{
-					turtlebot3_state_num = TB3_RIGHT_TURN;
-				}
-				// If the front wall is not detected, rotated left
-				else
-				{
-					turtlebot3_state_num = TB3_LEFT_TURN;
-				}
-				
-				// After the rotate, do the move forward action immediately.
-				rotate_and_forward = true;
-			}
-
-			break;
-
-		// Turtlebot is moving forward
-		case TB3_DRIVE_FORWARD:
-			// Keep moving forward until front wall is detected
+			// Check if there is enough space in front 
 			if (scan_data_[CENTER] > check_forward_dist)
 			{
-				update_cmd_vel(LINEAR_VELOCITY, 0.0);
-				
-			}
-			else
-			{
-				turtlebot3_state_num = GET_TB3_DIRECTION;
+				if (scan_data_[LEFT] < check_side_dist)
+				{
+					// If not enough space to the left, turn right
+					prev_robot_pose_ = robot_pose_;
+					turtlebot3_state_num = TB3_RIGHT_TURN;
+					RCLCPP_INFO(this->get_logger(), "RIGHT");
+				}
+				else if (scan_data_[RIGHT] < check_side_dist)
+				{
+					// If not enough space to the right, turn left
+					prev_robot_pose_ = robot_pose_;
+					turtlebot3_state_num = TB3_LEFT_TURN;
+					RCLCPP_INFO(this->get_logger(), "LEFT");
+				}
+				else
+				{
+					// There is lots of space left and right, drive forward
+					turtlebot3_state_num = TB3_DRIVE_FORWARD;
+					RCLCPP_INFO(this->get_logger(), "FORWARD");
+				}
+			} else {
+				prev_robot_pose_ = robot_pose_;
+				turtlebot3_state_num = TB3_RIGHT_TURN;
+				RCLCPP_INFO(this->get_logger(), "U TURN");
 			}
 			break;
 
-		// Turtlebot is turning right currently
+		case TB3_DRIVE_FORWARD:
+			update_cmd_vel(LINEAR_VELOCITY, 0.0);
+			turtlebot3_state_num = GET_TB3_DIRECTION;
+			break;
+
 		case TB3_RIGHT_TURN:
 			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
 			{
@@ -193,21 +171,10 @@ void WallFollower::update_callback()
 			}
 			break;
 
-		// Turtlebot is turning left currently
 		case TB3_LEFT_TURN:
 			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
 			{
-				// Check the rotate_and_forward flag, if after the rotation,
-				// move forward action should be made, set the state num into
-				// TB3_DRIVE_FORWARD.
-				if (rotate_and_forward)
-				{
-					turtlebot3_state_num = TB3_DRIVE_FORWARD;
-				}
-				else
-				{
-					turtlebot3_state_num = GET_TB3_DIRECTION;
-				}
+				turtlebot3_state_num = GET_TB3_DIRECTION;
 			}
 			else
 			{
