@@ -200,15 +200,14 @@ void WallFollower::update_callback()
 				// Check the rotate_and_forward flag, if after the rotation,
 				// move forward action should be made, set the state num into
 				// TB3_DRIVE_FORWARD.
-				// if (rotate_and_forward)
-				// {
-				// 	turtlebot3_state_num = TB3_DRIVE_FORWARD;
-				// }
-				// else
-				// {
-				// 	turtlebot3_state_num = GET_TB3_DIRECTION;
-				// }
-				turtlebot3_state_num = GET_TB3_DIRECTION;
+				if (rotate_and_forward)
+				{
+					turtlebot3_state_num = TB3_DRIVE_FORWARD;
+				}
+				else
+				{
+					turtlebot3_state_num = GET_TB3_DIRECTION;
+				}
 			}
 			else
 			{

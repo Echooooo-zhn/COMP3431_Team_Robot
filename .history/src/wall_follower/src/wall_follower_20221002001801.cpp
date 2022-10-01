@@ -122,7 +122,7 @@ void WallFollower::update_callback()
 	double escape_range = 30.0 * DEG2RAD;
 	double check_forward_dist = 0.7;
 	double check_side_dist = 0.6;
-	// bool rotate_and_forward = false;
+	bool rotate_and_forward = false;
 
 	// Get the state of the turtlebot
 	switch (turtlebot3_state_num)
@@ -161,8 +161,8 @@ void WallFollower::update_callback()
 					turtlebot3_state_num = TB3_LEFT_TURN;
 				}
 				
-				// // After the rotate, do the move forward action immediately.
-				// rotate_and_forward = true;
+				// After the rotate, do the move forward action immediately.
+				rotate_and_forward = true;
 			}
 
 			break;
@@ -200,15 +200,14 @@ void WallFollower::update_callback()
 				// Check the rotate_and_forward flag, if after the rotation,
 				// move forward action should be made, set the state num into
 				// TB3_DRIVE_FORWARD.
-				// if (rotate_and_forward)
-				// {
-				// 	turtlebot3_state_num = TB3_DRIVE_FORWARD;
-				// }
-				// else
-				// {
-				// 	turtlebot3_state_num = GET_TB3_DIRECTION;
-				// }
-				turtlebot3_state_num = GET_TB3_DIRECTION;
+				if (rotate_and_forward)
+				{
+					turtlebot3_state_num = TB3_DRIVE_FORWARD;
+				}
+				else
+				{
+					turtlebot3_state_num = GET_TB3_DIRECTION;
+				}
 			}
 			else
 			{
