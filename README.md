@@ -1,1 +1,7 @@
-"# COMP3431_Team_Robot" 
+# COMP3431_Team_Robot
+
+**Important Info**\
+    ..?
+
+**Changes**\
+    ..?
