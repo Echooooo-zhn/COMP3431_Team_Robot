@@ -143,6 +143,13 @@ void WallFollower::update_callback()
 					turtlebot3_state_num = TB3_RIGHT_TURN;
 					RCLCPP_INFO(this->get_logger(), "RIGHT");
 				}
+				else if (tmp_left_data > 1.5)
+				{
+					// If too far from left wall, turn left
+					prev_robot_pose_ = robot_pose_;
+					turtlebot3_state_num = TB3_LEFT_TURN;
+					RCLCPP_INFO(this->get_logger(), "LEFT");
+				}
 				else if (tmp_right_data < check_side_dist)
 				{
 					// If not enough space to the right, turn left
@@ -158,7 +165,7 @@ void WallFollower::update_callback()
 				}
 			}
 
-			if tmp_center_data < check_forward_dist)
+			if (tmp_center_data < check_forward_dist)
 			{
 				// If not enough space in front, turn right (u turn)
 				prev_robot_pose_ = robot_pose_;
