@@ -18,7 +18,8 @@
 // Use this code as the basis for a wall follower
 
 #include "wall_follower/wall_follower.hpp"
-
+#include <string> // DEBUG INCLUDE
+#include <iostream> //DEBUG INCLUDE
 #include <memory>
 
 using namespace std::chrono_literals;
@@ -118,24 +119,31 @@ void WallFollower::update_callback()
 {
 	static uint8_t turtlebot3_state_num = 0;
 	double escape_range = 30.0 * DEG2RAD;
-	double check_forward_dist = 0.7;
-	double check_side_dist = 0.6;
+	double check_forward_dist = 0.5; //0.7 default
+	double check_side_dist = 0.4; // 0.6 default
 
 	switch (turtlebot3_state_num)
 	{
 		case GET_TB3_DIRECTION:
-
-			// Check if there is enough space in front 
-			if (scan_data_[CENTER] > check_forward_dist)
+		{
+			auto tmp_center_data = scan_data_[CENTER];
+			RCLCPP_INFO(this->get_logger(), "Forward Check: " + std::to_string(tmp_center_data) + " > " + std::to_string(check_forward_dist));
+			
+			// Check if there is enough space in front
+			if (tmp_center_data > check_forward_dist)
 			{
-				if (scan_data_[LEFT] < check_side_dist)
+				auto tmp_right_data = scan_data_[RIGHT];
+				auto tmp_left_data = scan_data_[LEFT];
+				RCLCPP_INFO(this->get_logger(), "Left Check: " + std::to_string(tmp_left_data) + " < " + std::to_string(check_side_dist));
+				RCLCPP_INFO(this->get_logger(), "Right Check: " + std::to_string(tmp_right_data) + " < " + std::to_string(check_side_dist));
+				if (tmp_left_data < check_side_dist)
 				{
 					// If not enough space to the left, turn right
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_RIGHT_TURN;
 					RCLCPP_INFO(this->get_logger(), "RIGHT");
 				}
-				else if (scan_data_[RIGHT] < check_side_dist)
+				else if (tmp_right_data < check_side_dist)
 				{
 					// If not enough space to the right, turn left
 					prev_robot_pose_ = robot_pose_;
@@ -148,12 +156,17 @@ void WallFollower::update_callback()
 					turtlebot3_state_num = TB3_DRIVE_FORWARD;
 					RCLCPP_INFO(this->get_logger(), "FORWARD");
 				}
-			} else {
+			}
+
+			if tmp_center_data < check_forward_dist)
+			{
+				// If not enough space in front, turn right (u turn)
 				prev_robot_pose_ = robot_pose_;
 				turtlebot3_state_num = TB3_RIGHT_TURN;
 				RCLCPP_INFO(this->get_logger(), "U TURN");
 			}
 			break;
+		}
 
 		case TB3_DRIVE_FORWARD:
 			update_cmd_vel(LINEAR_VELOCITY, 0.0);
