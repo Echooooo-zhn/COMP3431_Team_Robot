@@ -143,12 +143,12 @@ void WallFollower::update_callback()
 					turtlebot3_state_num = TB3_RIGHT_TURN;
 					RCLCPP_INFO(this->get_logger(), "RIGHT");
 				}
-				else if (tmp_left_data > 1.5)
+				else if (tmp_left_data > 2)
 				{
 					// If too far from left wall, turn left
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_LEFT_TURN;
-					RCLCPP_INFO(this->get_logger(), "LEFT");
+					RCLCPP_INFO(this->get_logger(), "FOLLOW LEFT WALL");
 				}
 				else if (tmp_right_data < check_side_dist)
 				{
