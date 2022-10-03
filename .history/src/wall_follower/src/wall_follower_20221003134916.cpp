@@ -132,16 +132,16 @@ void WallFollower::update_callback()
 			// If left wall detected
 			if (scan_data_[LEFT] < check_side_dist)
 			{
-				// If front wall detected, turn right
+				// If front wall detected, move forward
 				if (scan_data_[CENTER] < check_forward_dist)
 				{
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_RIGHT_TURN;
 				}
-				// If front wall is not detected, move forward
+				// If front wall is not detected, turn right
 				else
 				{
-					turtlebot3_state_num = TB3_RIGHT_TURN;
+					turtlebot3_state_num = B3_DRIVE_FORWARDTB3_RIGHT_TURN;
 				}
 
 			}

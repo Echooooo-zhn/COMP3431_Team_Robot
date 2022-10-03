@@ -141,7 +141,7 @@ void WallFollower::update_callback()
 				// If front wall is not detected, move forward
 				else
 				{
-					turtlebot3_state_num = TB3_RIGHT_TURN;
+					turtlebot3_state_num = B3_DRIVE_FORWARDTB3_RIGHT_TURN;
 				}
 
 			}
