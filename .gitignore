@@ -3,3 +3,6 @@ src/wall_follower/install/
 src/wall_follower/log/
 **/.DS_Store
 .history/
+build/
+install/
+log/
