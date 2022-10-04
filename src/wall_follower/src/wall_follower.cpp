@@ -87,7 +87,7 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-	uint16_t scan_angle[3] = {0, 30, 330};
+	uint16_t scan_angle[3] = {0, 90, 270};
 
 	for (int num = 0; num < 3; num++)
 	{
@@ -120,42 +120,55 @@ void WallFollower::update_callback()
 	static uint8_t turtlebot3_state_num = 0;
 
 
-	double escape_range = 45.0 * DEG2RAD;
+	double escape_range = 5.0 * DEG2RAD;
 
-	double check_forward_dist = 0.7;
+	double check_forward_dist = 0.4;
 
-	double check_side_dist = 0.6;
+	double check_side_dist = 0.2;
+	double window_width = 0.3;
 
 	switch (turtlebot3_state_num)
 	{
 		case GET_TB3_DIRECTION:
 
+			escape_range = 5.0 * DEG2RAD;
+
 			// Check if there is space in front 
-			if (scan_data_[CENTER] > check_forward_dist)
+			RCLCPP_INFO(this->get_logger(), "Centre: %lf", scan_data_[CENTER]);
+			if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
 			{
 				if (scan_data_[LEFT] < check_side_dist)
 				{
-					// If there is a wall to the left, turn right
+					// Too close to left wall, turning right
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_RIGHT_TURN;
-					RCLCPP_INFO(this->get_logger(), "Wall on left, turning RIGHT");
+					RCLCPP_INFO(this->get_logger(), "Too close to left wall, turning right");
+				}
+				else if (scan_data_[LEFT] > (check_side_dist + window_width))
+				{
+					// Too far from left wall, turning left
+					escape_range = 90.0 * DEG2RAD;
+					prev_robot_pose_ = robot_pose_;
+					turtlebot3_state_num = TB3_LEFT_TURN;
+					RCLCPP_INFO(this->get_logger(), "Too far from left wall, turning left");
 				}
 				else if (scan_data_[RIGHT] < check_side_dist)
 				{
-					// If there is a wall to the right, turn left
+					// Too close to right wall, turning left
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_LEFT_TURN;
-					RCLCPP_INFO(this->get_logger(), "Wall on right, turning LEFT");
+					RCLCPP_INFO(this->get_logger(), "Too close to right wall, turning left");
 				}
 				else
 				{
-					// If there is no wall to the left or the right,
-					// Go straight
+					// If we're not too close to anything, but there is enough space infront, go forward
 					turtlebot3_state_num = TB3_DRIVE_FORWARD;
-					RCLCPP_INFO(this->get_logger(), "No wall left or right, going FORWARD");
+					RCLCPP_INFO(this->get_logger(), "Not too close to anything, going FORWARD");
 				}
 				
-			} else {
+			}
+			if (scan_data_[CENTER] < check_forward_dist &&  scan_data_[CENTER] != 0.0 )
+			{
 
 				// If there is something in front, turn right
 				prev_robot_pose_ = robot_pose_;
@@ -188,6 +201,16 @@ void WallFollower::update_callback()
 			else
 			{
 				update_cmd_vel(0.0, ANGULAR_VELOCITY);
+			}
+			break;
+		case TB3_RIGHT_FORWARD_TURN:
+			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
+			{
+				turtlebot3_state_num = GET_TB3_DIRECTION;
+			}
+			else
+			{
+				update_cmd_vel(LINEAR_VELOCITY, -1 * ANGULAR_VELOCITY);
 			}
 			break;
 

@@ -31,13 +31,14 @@
 #define LEFT   1
 #define RIGHT  2
 
-#define LINEAR_VELOCITY  0.3
-#define ANGULAR_VELOCITY 1.5
+#define LINEAR_VELOCITY  0.1
+#define ANGULAR_VELOCITY 0.5
 
 #define GET_TB3_DIRECTION 0
 #define TB3_DRIVE_FORWARD 1
 #define TB3_RIGHT_TURN    2
 #define TB3_LEFT_TURN     3
+#define TB3_RIGHT_FORWARD_TURN     4
 
 class WallFollower : public rclcpp::Node
 {
