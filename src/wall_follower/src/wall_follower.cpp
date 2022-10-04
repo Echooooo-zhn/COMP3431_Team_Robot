@@ -116,39 +116,48 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 ********************************************************************************/
 void WallFollower::update_callback()
 {
+	// Current state of the vehicle, i.e. turning left, going straight etc
 	static uint8_t turtlebot3_state_num = 0;
-	double escape_range = 30.0 * DEG2RAD;
+
+
+	double escape_range = 45.0 * DEG2RAD;
+
 	double check_forward_dist = 0.7;
+
 	double check_side_dist = 0.6;
 
 	switch (turtlebot3_state_num)
 	{
 		case GET_TB3_DIRECTION:
 
-			// Check if there is enough space in front 
+			// Check if there is space in front 
 			if (scan_data_[CENTER] > check_forward_dist)
 			{
 				if (scan_data_[LEFT] < check_side_dist)
 				{
-					// If not enough space to the left, turn right
+					// If there is a wall to the left, turn right
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_RIGHT_TURN;
-					RCLCPP_INFO(this->get_logger(), "RIGHT");
+					RCLCPP_INFO(this->get_logger(), "Wall on left, turning RIGHT");
 				}
 				else if (scan_data_[RIGHT] < check_side_dist)
 				{
-					// If not enough space to the right, turn left
+					// If there is a wall to the right, turn left
 					prev_robot_pose_ = robot_pose_;
 					turtlebot3_state_num = TB3_LEFT_TURN;
-					RCLCPP_INFO(this->get_logger(), "LEFT");
+					RCLCPP_INFO(this->get_logger(), "Wall on right, turning LEFT");
 				}
 				else
 				{
-					// There is lots of space left and right, drive forward
+					// If there is no wall to the left or the right,
+					// Go straight
 					turtlebot3_state_num = TB3_DRIVE_FORWARD;
-					RCLCPP_INFO(this->get_logger(), "FORWARD");
+					RCLCPP_INFO(this->get_logger(), "No wall left or right, going FORWARD");
 				}
+				
 			} else {
+
+				// If there is something in front, turn right
 				prev_robot_pose_ = robot_pose_;
 				turtlebot3_state_num = TB3_RIGHT_TURN;
 				RCLCPP_INFO(this->get_logger(), "U TURN");
