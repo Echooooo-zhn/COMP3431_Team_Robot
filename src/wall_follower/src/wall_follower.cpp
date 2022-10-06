@@ -18,7 +18,7 @@
 // Use this code as the basis for a wall follower
 
 #include "wall_follower/wall_follower.hpp"
-
+#include <string>
 #include <memory>
 
 using namespace std::chrono_literals;
@@ -87,7 +87,7 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-	uint16_t scan_angle[3] = {0, 30, 330};
+	uint16_t scan_angle[3] = {0, 80, 280};
 
 	for (int num = 0; num < 3; num++)
 	{
@@ -111,55 +111,115 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 	cmd_vel_pub_->publish(cmd_vel);
 }
 
+
 /********************************************************************************
 ** Update functions
-********************************************************************************/
+** TurtleBot will follow the left wall to determine the action
+*******************************************************************************/
 void WallFollower::update_callback()
 {
 	static uint8_t turtlebot3_state_num = 0;
-	double escape_range = 30.0 * DEG2RAD;
-	double check_forward_dist = 0.7;
-	double check_side_dist = 0.6;
-
+	double escape_range = 5 * DEG2RAD;
+	double check_forward_dist = 0.5;
+	double check_side_dist = 0.35;
+	bool front_wall_detected = 0;
+	bool left_wall_detected = 0;
+	bool right_wall_detected = 0;
+	// Get the state of the turtlebot
 	switch (turtlebot3_state_num)
 	{
-		case GET_TB3_DIRECTION:
+		case GET_TB3_DIRECTION: {			
 
-			// Check if there is enough space in front 
-			if (scan_data_[CENTER] > check_forward_dist)
+			if (scan_data_[CENTER] - check_forward_dist <= -0.000001)
+				front_wall_detected = 1;
+			if (scan_data_[LEFT] - check_side_dist <= -0.000001)
+				left_wall_detected = 1;
+			if (scan_data_[RIGHT] - check_side_dist <= -0.000001)
+				right_wall_detected = 1;
+			if (scan_data_[CENTER] <= 0.0000001)
+				front_wall_detected = 0;
+			if (scan_data_[LEFT] <= 0.0000001)
+				left_wall_detected = 0;
+			if (scan_data_[RIGHT] <= 0.0000001)
+				right_wall_detected = 0;
+			RCLCPP_INFO(this->get_logger(), "scanned center:%lf left:%lf right:%lf", scan_data_[CENTER],
+			scan_data_[LEFT],scan_data_[RIGHT]);
+			RCLCPP_INFO(this->get_logger(), "front%d left%d right%d", front_wall_detected,
+			left_wall_detected, right_wall_detected);
+			prev_robot_pose_ = robot_pose_;
+
+			if (scan_data_[RIGHT] >= 0.02 && scan_data_[RIGHT] <= 0.24) {
+				turtlebot3_state_num = TB3_LEFT_TURN;
+				RCLCPP_INFO(this->get_logger(), "too close to right");
+			}
+			// only right wall, move foward
+			else if (!front_wall_detected && !left_wall_detected && right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "only right");
+				turtlebot3_state_num = TB3_DRIVE_FORWARD;
+			}
+			else if (!front_wall_detected && !left_wall_detected && !right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "No wall");		
+				turtlebot3_state_num = TB3_RIGHT_FIND_WALL;
+			}
+			// left and right
+			else if (!front_wall_detected && left_wall_detected && right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "left and right");				
+				turtlebot3_state_num = TB3_RIGHT_FIND_WALL;
+			}
+			// only left
+			else if (!front_wall_detected && left_wall_detected && !right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "left wall");				
+				turtlebot3_state_num = TB3_RIGHT_FIND_WALL;
+			}
+			// only front wall
+			else if (front_wall_detected && !left_wall_detected && !right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "front wall");				
+				turtlebot3_state_num = TB3_LEFT_TURN;
+			}
+			// front, left
+			else if (front_wall_detected && left_wall_detected && !right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "front and left wall");				
+				turtlebot3_state_num = TB3_LEFT_TURN;
+			}
+			// front, right
+			else if (front_wall_detected && !left_wall_detected && right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "front and right wall");				
+				turtlebot3_state_num = TB3_LEFT_TURN;
+			}
+			// left, right, front
+			else if (front_wall_detected && left_wall_detected && right_wall_detected) {
+				RCLCPP_INFO(this->get_logger(), "All wall");				
+				turtlebot3_state_num = TB3_LEFT_TURN;
+			}
+			else {
+				RCLCPP_INFO(this->get_logger(), "Nothing Happen");				
+			}
+			break;	
+		}
+		case TB3_LEFT_FOWARD:
+			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
 			{
-				if (scan_data_[LEFT] < check_side_dist)
-				{
-					// If not enough space to the left, turn right
-					prev_robot_pose_ = robot_pose_;
-					turtlebot3_state_num = TB3_RIGHT_TURN;
-					RCLCPP_INFO(this->get_logger(), "RIGHT");
-				}
-				else if (scan_data_[RIGHT] < check_side_dist)
-				{
-					// If not enough space to the right, turn left
-					prev_robot_pose_ = robot_pose_;
-					turtlebot3_state_num = TB3_LEFT_TURN;
-					RCLCPP_INFO(this->get_logger(), "LEFT");
-				}
-				else
-				{
-					// There is lots of space left and right, drive forward
-					turtlebot3_state_num = TB3_DRIVE_FORWARD;
-					RCLCPP_INFO(this->get_logger(), "FORWARD");
-				}
-			} else {
-				prev_robot_pose_ = robot_pose_;
-				turtlebot3_state_num = TB3_RIGHT_TURN;
-				RCLCPP_INFO(this->get_logger(), "U TURN");
+				turtlebot3_state_num = GET_TB3_DIRECTION;
+			}
+			else {
+				update_cmd_vel(LINEAR_VELOCITY, ANGULAR_VELOCITY);
 			}
 			break;
-
+		case TB3_RIGHT_FIND_WALL:
+			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
+			{
+				turtlebot3_state_num = GET_TB3_DIRECTION;
+			}
+			else {
+				update_cmd_vel(LINEAR_VELOCITY, -1 * ANGULAR_VELOCITY);
+			}
+			break;
+		// Turtlebot is moving forward
 		case TB3_DRIVE_FORWARD:
-			update_cmd_vel(LINEAR_VELOCITY, 0.0);
+			update_cmd_vel(LINEAR_VELOCITY, 0);
 			turtlebot3_state_num = GET_TB3_DIRECTION;
 			break;
-
+		// Turtlebot is turning right currently
 		case TB3_RIGHT_TURN:
 			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
 			{
@@ -171,6 +231,7 @@ void WallFollower::update_callback()
 			}
 			break;
 
+		// Turtlebot is turning left currently
 		case TB3_LEFT_TURN:
 			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
 			{
