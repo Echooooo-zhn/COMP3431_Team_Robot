@@ -33,6 +33,8 @@ WallFollower::WallFollower()
 	scan_data_[1] = 0.0;
 	scan_data_[2] = 0.0;
 
+	confidence = MAX_LEVEL;
+
 	robot_pose_ = 0.0;
 	prev_robot_pose_ = 0.0;
 
@@ -87,7 +89,9 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-	uint16_t scan_angle[3] = {0, 90, 270};
+	uint16_t scan_angle[4] = {0, 90, 45, 270};
+
+	RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
 
 	for (int num = 0; num < 3; num++)
 	{
@@ -122,102 +126,91 @@ void WallFollower::update_callback()
 
 	double escape_range = 5.0 * DEG2RAD;
 
-	double check_forward_dist = 0.4;
+	double check_forward_dist = 0.45;
 
 	double check_side_dist = 0.2;
-	double window_width = 0.3;
+	double window_width = 0.21;
 
-	switch (turtlebot3_state_num)
+	
+		
+	// Measure and Change confidence level
+
+	//escape_range = 5.0 * DEG2RAD;
+	RCLCPP_INFO(this->get_logger(), "Confidence: %d", confidence);
+
+	// Check if there is space in front 
+	if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
 	{
-		case GET_TB3_DIRECTION:
+		if (scan_data_[LEFT] < check_side_dist + 0.1)
+		{
+			// Too close to left wall, turning right
+			prev_robot_pose_ = robot_pose_;
+			//turtlebot3_state_num = TB3_RIGHT_TURN;
+			RCLCPP_INFO(this->get_logger(), "Too close to left wall");
+			confidence--;
+		}
+		else if (scan_data_[OFF_LEFT] <= (check_side_dist + 0.3))
+		{
+			// Too close to right wall, turning left
+			escape_range = 90 * DEG2RAD;
+			prev_robot_pose_ = robot_pose_;
+			// turtlebot3_state_num = TB3_ANGLE_LEFT_TURN;
+			confidence += 10;
+			RCLCPP_INFO(this->get_logger(), "Seeing left 45deg wall");
+		}
+		else if (scan_data_[LEFT] > (check_side_dist + window_width))
+		{
 
-			escape_range = 5.0 * DEG2RAD;
+			// Move forward a certain distance
+			// turn left
+			// Too far from left wall, turning left
+			//escape_range = 90.0 * DEG2RAD;
+			prev_robot_pose_ = robot_pose_;
+			turtlebot3_state_num = TB3_LEFT_TURN;
+			confidence--;
+			RCLCPP_INFO(this->get_logger(), "Too far from left wall");
+		} 
+		/*
+		else if (scan_data_[RIGHT] < check_side_dist)
+		{
+			// Too close to right wall, turning left
+			prev_robot_pose_ = robot_pose_;
+			turtlebot3_state_num = TB3_LEFT_TURN;
+			RCLCPP_INFO(this->get_logger(), "Too close to right wall");
+		}*/
+		else
+		{
+			// If we're not too close to anything, but there is enough space infront, go forward
+			//turtlebot3_state_num = TB3_DRIVE_FORWARD;
+			confidence++;
+			RCLCPP_INFO(this->get_logger(), "within window");
+		}
+		
+	} else {
 
-			// Check if there is space in front 
-			RCLCPP_INFO(this->get_logger(), "Centre: %lf", scan_data_[CENTER]);
-			if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
-			{
-				if (scan_data_[LEFT] < check_side_dist)
-				{
-					// Too close to left wall, turning right
-					prev_robot_pose_ = robot_pose_;
-					turtlebot3_state_num = TB3_RIGHT_TURN;
-					RCLCPP_INFO(this->get_logger(), "Too close to left wall, turning right");
-				}
-				else if (scan_data_[LEFT] > (check_side_dist + window_width))
-				{
-					// Too far from left wall, turning left
-					escape_range = 90.0 * DEG2RAD;
-					prev_robot_pose_ = robot_pose_;
-					turtlebot3_state_num = TB3_LEFT_TURN;
-					RCLCPP_INFO(this->get_logger(), "Too far from left wall, turning left");
-				}
-				else if (scan_data_[RIGHT] < check_side_dist)
-				{
-					// Too close to right wall, turning left
-					prev_robot_pose_ = robot_pose_;
-					turtlebot3_state_num = TB3_LEFT_TURN;
-					RCLCPP_INFO(this->get_logger(), "Too close to right wall, turning left");
-				}
-				else
-				{
-					// If we're not too close to anything, but there is enough space infront, go forward
-					turtlebot3_state_num = TB3_DRIVE_FORWARD;
-					RCLCPP_INFO(this->get_logger(), "Not too close to anything, going FORWARD");
-				}
-				
-			}
-			if (scan_data_[CENTER] < check_forward_dist &&  scan_data_[CENTER] != 0.0 )
-			{
-
-				// If there is something in front, turn right
-				prev_robot_pose_ = robot_pose_;
-				turtlebot3_state_num = TB3_RIGHT_TURN;
-				RCLCPP_INFO(this->get_logger(), "U TURN");
-			}
-			break;
-
-		case TB3_DRIVE_FORWARD:
-			update_cmd_vel(LINEAR_VELOCITY, 0.0);
-			turtlebot3_state_num = GET_TB3_DIRECTION;
-			break;
-
-		case TB3_RIGHT_TURN:
-			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
-			{
-				turtlebot3_state_num = GET_TB3_DIRECTION;
-			}
-			else
-			{
-				update_cmd_vel(0.0, -1 * ANGULAR_VELOCITY);
-			}
-			break;
-
-		case TB3_LEFT_TURN:
-			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
-			{
-				turtlebot3_state_num = GET_TB3_DIRECTION;
-			}
-			else
-			{
-				update_cmd_vel(0.0, ANGULAR_VELOCITY);
-			}
-			break;
-		case TB3_RIGHT_FORWARD_TURN:
-			if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
-			{
-				turtlebot3_state_num = GET_TB3_DIRECTION;
-			}
-			else
-			{
-				update_cmd_vel(LINEAR_VELOCITY, -1 * ANGULAR_VELOCITY);
-			}
-			break;
-
-		default:
-			turtlebot3_state_num = GET_TB3_DIRECTION;
-			break;
+		// If there is something in front, turn right
+		prev_robot_pose_ = robot_pose_;
+		turtlebot3_state_num = TB3_RIGHT_TURN;
+		confidence = 0;
+		RCLCPP_INFO(this->get_logger(), "U TURN");
 	}
+
+	if (confidence > MAX_LEVEL) confidence = MAX_LEVEL;
+	if (confidence < 0) confidence = 0;
+	
+	// Act on confidence level
+	if (confidence > LEFT_TURN_LEVEL) {
+		
+		// FORWARD
+		update_cmd_vel(LINEAR_VELOCITY, 0.0);
+		turtlebot3_state_num = GET_TB3_DIRECTION;
+
+	} else if (confidence <= LEFT_TURN_LEVEL) {
+
+		// LEFT
+		update_cmd_vel(0.0, ANGULAR_VELOCITY);
+	}
+		
 }
 
 /*******************************************************************************
