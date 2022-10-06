@@ -147,7 +147,8 @@ void WallFollower::update_callback()
 			prev_robot_pose_ = robot_pose_;
 			//turtlebot3_state_num = TB3_RIGHT_TURN;
 			RCLCPP_INFO(this->get_logger(), "Too close to left wall");
-			confidence--;
+			confidence++;
+			update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
 		}
 		else if (scan_data_[OFF_LEFT] <= (check_side_dist + 0.3))
 		{
