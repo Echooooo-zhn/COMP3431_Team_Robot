@@ -32,8 +32,8 @@
 #define OFF_LEFT 2
 #define RIGHT  3
 
-#define LINEAR_VELOCITY  0.06  // Working 0.06 // experimental 0.1
-#define ANGULAR_VELOCITY 0.3 // Working 0.3 // experimental 0.5
+#define LINEAR_VELOCITY  0.03  // Working 0.06 // experimental 0.1
+#define ANGULAR_VELOCITY 0.15 // Working 0.3 // experimental 0.5
 
 #define GET_TB3_DIRECTION 0
 #define TB3_DRIVE_FORWARD 1

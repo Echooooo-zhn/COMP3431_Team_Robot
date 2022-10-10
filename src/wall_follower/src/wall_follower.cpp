@@ -128,8 +128,8 @@ void WallFollower::update_callback()
 
 	double check_forward_dist = 0.45; //working 0.45
 
-	double check_side_dist = 0.2;
-	double window_width = 0.17; // working 0.21 // experimental 0.17
+	double check_side_dist = 0.2; //working 2
+	double window_width = 0.21; // working 0.21 // experimental 0.15
 		
 	// Measure and Change confidence level
 
@@ -141,7 +141,7 @@ void WallFollower::update_callback()
 	// Check if there is space in front 
 	if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
 	{
-		if (scan_data_[LEFT] < check_side_dist + 0.1)
+		if (scan_data_[LEFT] < check_side_dist + 0.1 || scan_data_[OFF_LEFT] <= (check_side_dist - 0.3))
 		{
 			// Too close to left wall, turning right
 			RCLCPP_INFO(this->get_logger(), "Too close to left wall");
