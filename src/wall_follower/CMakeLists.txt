@@ -20,6 +20,7 @@ endif()
 # Find ament packages and libraries for ament and system dependencies
 ################################################################################
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -60,6 +61,8 @@ install(DIRECTORY include/
   DESTINATION include/
 )
 
+
+
 ################################################################################
 # Macro for ament package
 ################################################################################
@@ -69,4 +72,6 @@ ament_export_dependencies(nav_msgs)
 ament_export_dependencies(rclcpp)
 ament_export_dependencies(sensor_msgs)
 ament_export_dependencies(tf2)
-ament_package()
+ament_auto_package(INSTALL_TO_SHARE
+  launch
+)

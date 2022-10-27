@@ -35,9 +35,6 @@ WallFollower::WallFollower()
 
 	confidence = START_LEVEL;
 
-	robot_pose_ = 0.0;
-	prev_robot_pose_ = 0.0;
-
 	/************************************************************
 	** Initialise ROS publishers and subscribers
 	************************************************************/
@@ -84,7 +81,6 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
 
-	robot_pose_ = yaw;
 }
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
@@ -120,12 +116,6 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 ********************************************************************************/
 void WallFollower::update_callback()
 {
-	// Current state of the vehicle, i.e. turning left, going straight etc
-	static uint8_t turtlebot3_state_num = 0;
-
-
-	double escape_range = 5.0 * DEG2RAD;
-
 	double check_forward_dist = 0.45; //working 0.45
 
 	double check_side_dist = 0.2; //working 2
@@ -133,7 +123,6 @@ void WallFollower::update_callback()
 		
 	// Measure and Change confidence level
 
-	//escape_range = 5.0 * DEG2RAD;
 	if (confidence > MAX_LEVEL) confidence = MAX_LEVEL;
 	if (confidence < 0) confidence = 0;
 	RCLCPP_INFO(this->get_logger(), "Confidence: %d", confidence);
@@ -151,7 +140,6 @@ void WallFollower::update_callback()
 		else if (scan_data_[OFF_LEFT] <= (check_side_dist + 0.3))
 		{
 			// Sees left wall, add to confidence
-			escape_range = 90 * DEG2RAD;
 			confidence += 10;
 			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
 			RCLCPP_INFO(this->get_logger(), "Seeing left 45deg wall");
@@ -163,7 +151,6 @@ void WallFollower::update_callback()
 			// Move forward a certain distance
 			// turn left
 			// Too far from left wall, turning left
-			//escape_range = 90.0 * DEG2RAD;
 			confidence--;
 			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
 			RCLCPP_INFO(this->get_logger(), "Too far from left wall");
@@ -172,13 +159,11 @@ void WallFollower::update_callback()
 		else if (scan_data_[RIGHT] < check_side_dist)
 		{
 			// Too close to right wall, turning left
-			turtlebot3_state_num = TB3_LEFT_TURN;
 			RCLCPP_INFO(this->get_logger(), "Too close to right wall");
 		}*/
 		else
 		{
 			// If we're not too close to anything, but there is enough space infront, go forward
-			//turtlebot3_state_num = TB3_DRIVE_FORWARD;
 			confidence++;
 			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
 			RCLCPP_INFO(this->get_logger(), "within window");
@@ -187,25 +172,20 @@ void WallFollower::update_callback()
 	} else {
 		// if (scan_data_[CENTER] < check_forward_dist && scan_data_[CENTER] != 0.0)
 		// If there is something in front, turn right
-		turtlebot3_state_num = TB3_RIGHT_TURN;
 		if (confidence < RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
 		confidence++;
 		RCLCPP_INFO(this->get_logger(), "U TURN");
 	}
 
-	prev_robot_pose_ = robot_pose_;
 	if (confidence > RIGHT_TURN_LEVEL) {
 		// RIGHT
 		update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
-		turtlebot3_state_num = TB3_RIGHT_TURN;
 	} else if (confidence > LEFT_TURN_LEVEL) {
 		// FORWARD
 		update_cmd_vel(LINEAR_VELOCITY, 0.0);
-		turtlebot3_state_num = TB3_DRIVE_FORWARD;
 	} else if (confidence <= LEFT_TURN_LEVEL) {
 		// LEFT
 		update_cmd_vel(0.0, ANGULAR_VELOCITY);
-		turtlebot3_state_num = TB3_ANGLE_LEFT_TURN;
 	}
 }
 
