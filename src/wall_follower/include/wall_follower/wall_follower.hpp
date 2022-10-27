@@ -29,15 +29,23 @@
 
 #define CENTER 0
 #define LEFT   1
-#define RIGHT  2
+#define OFF_LEFT 2
+#define RIGHT  3
 
-#define LINEAR_VELOCITY  0.3
-#define ANGULAR_VELOCITY 1.5
+#define LINEAR_VELOCITY  0.03  // Working 0.06 // experimental 0.1
+#define ANGULAR_VELOCITY 0.15 // Working 0.3 // experimental 0.5
 
 #define GET_TB3_DIRECTION 0
 #define TB3_DRIVE_FORWARD 1
 #define TB3_RIGHT_TURN    2
 #define TB3_LEFT_TURN     3
+#define TB3_RIGHT_FORWARD_TURN     4
+#define TB3_ANGLE_LEFT_TURN     5
+
+#define MAX_LEVEL 105
+#define START_LEVEL 70
+#define LEFT_TURN_LEVEL 30
+#define RIGHT_TURN_LEVEL 100
 
 class WallFollower : public rclcpp::Node
 {
@@ -57,6 +65,7 @@ private:
   double robot_pose_;
   double prev_robot_pose_;
   double scan_data_[3];
+  int confidence;
 
   // ROS timer
   rclcpp::TimerBase::SharedPtr update_timer_;
