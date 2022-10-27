@@ -74,8 +74,13 @@ class ImageSubscriber(Node):
         print(x, y, w, h, area)
 
     # Display camera image
+    cv2.namedWindow("camera", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('camera', 400, 400) 
     cv2.imshow("camera", current_frame)
+    
     # Display masked image
+    cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('mask', 400, 400)
     cv2.imshow("mask", mask)
     
     cv2.waitKey(1)
