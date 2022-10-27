@@ -27,19 +27,20 @@
 #define DEG2RAD (M_PI / 180.0)
 #define RAD2DEG (180.0 / M_PI)
 
-#define CENTER 0
-#define LEFT   1
-#define OFF_LEFT 2
-#define RIGHT  3
-#define FRONT_LEFT 4
+#define FRONT 0
+#define LEFT 1
+#define RIGHT 2
+#define BACK  3
 
 #define LINEAR_VELOCITY  0.1  // Working 0.06 // experimental 0.1
-#define ANGULAR_VELOCITY 1 // Working 0.3 // experimental 0.5
+#define ANGULAR_VELOCITY 0.5 // Working 0.3 // experimental 0.5
 
 #define MAX_LEVEL 105
 #define START_LEVEL 70
 #define LEFT_TURN_LEVEL 30
 #define RIGHT_TURN_LEVEL 100
+
+#define NUM_SCANS 360
 
 class WallFollower : public rclcpp::Node
 {
@@ -56,7 +57,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   // Variables
-  double scan_data_[5];
+  double scan_data_[4];
   int confidence;
 
   // ROS timer
