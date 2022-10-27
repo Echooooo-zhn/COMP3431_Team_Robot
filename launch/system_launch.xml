@@ -1,0 +1,9 @@
+<launch>
+
+  <!-- Launch Wall Follower -->
+  <include file="$(find-pkg-share wall_follower)/launch/wall_follower.launch.py" />
+
+  <!-- Launch Image Processor -->
+  <include file="$(find-pkg-share image_processing)/launch/image_processing.launch.py" />
+
+</launch>
