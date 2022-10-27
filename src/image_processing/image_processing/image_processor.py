@@ -53,9 +53,9 @@ class ImageSubscriber(Node):
     # Convert BGR image to HSV
     hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
     # Mask out everything except pixels in the range light white to dark white
-    light_white = (0, 0, 200)
-    dark_white = (145, 60, 255)
-    mask = cv2.inRange(hsv_frame, light_white, dark_white)
+    light = (320, 70, 90) 
+    dark = (320, 90, 95)
+    mask = cv2.inRange(hsv_frame, light, dark)
     result = cv2.bitwise_and(current_frame, current_frame, mask=mask)
 
     # Run 4-way connected components, with statistics
