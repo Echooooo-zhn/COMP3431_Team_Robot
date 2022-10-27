@@ -32,6 +32,8 @@ WallFollower::WallFollower()
 	scan_data_[0] = 0.0;
 	scan_data_[1] = 0.0;
 	scan_data_[2] = 0.0;
+	scan_data_[3] = 0.0;
+	scan_data_[4] = 0.0;
 
 	confidence = START_LEVEL;
 
@@ -85,11 +87,11 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-	uint16_t scan_angle[4] = {0, 90, 45, 270};
+	uint16_t scan_angle[5] = {0, 90, 45, 270, 35};
 
 	RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
 
-	for (int num = 0; num < 3; num++)
+	for (int num = 0; num < 5; num++)
 	{
 		if (std::isinf(msg->ranges.at(scan_angle[num])))
 		{
@@ -128,8 +130,9 @@ void WallFollower::update_callback()
 	RCLCPP_INFO(this->get_logger(), "Confidence: %d", confidence);
 
 	// Check if there is space in front 
-	if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
+	if ((scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0) && (scan_data_[FRONT_LEFT] > check_forward_dist + 0.2 || scan_data_[FRONT_LEFT] == 0.0))
 	{
+		RCLCPP_INFO(this->get_logger(), "%lf > 0.55", scan_data_[FRONT_LEFT]);
 		if (scan_data_[OFF_LEFT] < check_side_dist + 0.1 || scan_data_[OFF_LEFT] <= (check_side_dist - 0.3))
 		{
 			// Too close to left wall, turning right
@@ -179,13 +182,13 @@ void WallFollower::update_callback()
 
 	if (confidence > RIGHT_TURN_LEVEL) {
 		// RIGHT
-		update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
+		update_cmd_vel(0.03, -1 * ANGULAR_VELOCITY);
 	} else if (confidence > LEFT_TURN_LEVEL) {
 		// FORWARD
 		update_cmd_vel(LINEAR_VELOCITY, 0.0);
 	} else if (confidence <= LEFT_TURN_LEVEL) {
 		// LEFT
-		update_cmd_vel(0.0, ANGULAR_VELOCITY);
+		update_cmd_vel(0.03, ANGULAR_VELOCITY);
 	}
 }
 
