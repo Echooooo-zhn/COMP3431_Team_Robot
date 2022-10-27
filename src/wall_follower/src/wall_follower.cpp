@@ -35,9 +35,6 @@ WallFollower::WallFollower()
 
 	confidence = START_LEVEL;
 
-	robot_pose_ = 0.0;
-	prev_robot_pose_ = 0.0;
-
 	/************************************************************
 	** Initialise ROS publishers and subscribers
 	************************************************************/
@@ -84,7 +81,6 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
 
-	robot_pose_ = yaw;
 }
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
@@ -181,7 +177,6 @@ void WallFollower::update_callback()
 		RCLCPP_INFO(this->get_logger(), "U TURN");
 	}
 
-	prev_robot_pose_ = robot_pose_;
 	if (confidence > RIGHT_TURN_LEVEL) {
 		// RIGHT
 		update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
