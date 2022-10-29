@@ -32,8 +32,8 @@
 #define RIGHT 2
 #define BACK  3
 
-#define LINEAR_VELOCITY  0.15  // Working 0.06 // experimental 0.1
-#define ANGULAR_VELOCITY 0.3 // Working 0.3 // experimental 0.5
+#define LINEAR_VELOCITY  0.15
+#define ANGULAR_VELOCITY 0.3
 
 #define NUM_SCANS 360
 

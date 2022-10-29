@@ -136,11 +136,9 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 ********************************************************************************/
 void WallFollower::update_callback()
 {
-	double forward_dist_limit = 0.5; //working 0.45
-	double side_dist_limit = 0.24; //working 2
-	double window_width = 0.1; // working 0.21 // experimental 0.15
-		
-	// Measure and Change confidence level
+	double forward_dist_limit = 0.5;
+	double side_dist_limit = 0.24;
+	double window_width = 0.1;
 
 	// Check if there is space in front 
 	RCLCPP_INFO(this->get_logger(), "Forward %lf", scan_ranges[FRONT]);
@@ -169,6 +167,8 @@ void WallFollower::update_callback()
 	} else {
 		// No space infront
 		/*
+		// This code currently doesnt work for this implementation more logic is needed.
+
 		if (scan_ranges[LEFT] > (side_dist_limit + window_width) || scan_ranges[LEFT] == 0) {
 			// Check if we can turn left
 			auto speed_reduction = (scan_ranges[FRONT] - (forward_dist_limit * 0.6)) / forward_dist_limit;
@@ -189,6 +189,7 @@ void WallFollower::update_callback()
 			RCLCPP_INFO(this->get_logger(), "STUCK");
 		}
 		*/
+		// Turn right whilst slowing linear speed based on formula below
 		auto speed_reduction = (scan_ranges[FRONT] - (forward_dist_limit * 0.6)) / forward_dist_limit;
 		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, -1 * ANGULAR_VELOCITY);
 		RCLCPP_INFO(this->get_logger(), "Turning Right");
