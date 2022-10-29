@@ -92,14 +92,14 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	// Setting up scan data 
 	// Creating vectors to store a range of scan data
 	std::vector<float>::const_iterator it_first = msg->ranges.begin();
-	std::vector<float>::const_iterator it_last = msg->ranges.begin() + 20;
+	std::vector<float>::const_iterator it_last = msg->ranges.begin() + 30;
 	std::vector<float> forward_ranges(it_first, it_last);
-	it_first = msg->ranges.begin() + 340;
+	it_first = msg->ranges.begin() + 330;
 	it_last = msg->ranges.end();
 	std::vector<float> temp_forward_ranges(it_first, it_last);
 	forward_ranges.insert(forward_ranges.end(), temp_forward_ranges.begin(), temp_forward_ranges.end());
 
-	it_first = msg->ranges.begin() + 20;
+	it_first = msg->ranges.begin() + 30;
 	it_last = msg->ranges.begin() + 90;
 	std::vector<float> left_ranges(it_first, it_last);
 
@@ -108,7 +108,7 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	std::vector<float> back_ranges(it_first, it_last);
 
 	it_first = msg->ranges.begin() + 270;
-	it_last = msg->ranges.begin() + 340;
+	it_last = msg->ranges.begin() + 330;
 	std::vector<float> right_ranges(it_first, it_last);
 
 	scan_data_[FRONT] = *std::min_element(forward_ranges.begin(), forward_ranges.end());
@@ -140,8 +140,8 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 void WallFollower::update_callback()
 {
 	double forward_dist_limit = 0.5; //working 0.45
-	double side_dist_limit = 0.2; //working 2
-	double window_width = 0.21; // working 0.21 // experimental 0.15
+	double side_dist_limit = 0.3; //working 2
+	double window_width = 0.05; // working 0.21 // experimental 0.15
 		
 	// Measure and Change confidence level
 
@@ -188,7 +188,8 @@ void WallFollower::update_callback()
 			update_cmd_vel(0, 0);
 			RCLCPP_INFO(this->get_logger(), "STUCK");
 		}*/
-		update_cmd_vel(LINEAR_VELOCITY, -1 * ANGULAR_VELOCITY);
+		auto speed_reduction = (scan_data_[FRONT] - (forward_dist_limit / 2)) / forward_dist_limit;
+		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, -1 * ANGULAR_VELOCITY);
 		RCLCPP_INFO(this->get_logger(), "Turning Right");
 	}
 }
