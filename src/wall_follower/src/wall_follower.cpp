@@ -33,7 +33,6 @@ WallFollower::WallFollower()
 	scan_ranges[1] = 0.0;
 	scan_ranges[2] = 0.0;
 	scan_ranges[3] = 0.0;
-	scan_ranges[4] = 0.0;
 
 	/************************************************************
 	** Initialise ROS publishers and subscribers
