@@ -32,13 +32,8 @@
 #define RIGHT 2
 #define BACK  3
 
-#define LINEAR_VELOCITY  0.1  // Working 0.06 // experimental 0.1
+#define LINEAR_VELOCITY  0.15  // Working 0.06 // experimental 0.1
 #define ANGULAR_VELOCITY 0.3 // Working 0.3 // experimental 0.5
-
-#define MAX_LEVEL 105
-#define START_LEVEL 70
-#define LEFT_TURN_LEVEL 30
-#define RIGHT_TURN_LEVEL 100
 
 #define NUM_SCANS 360
 
@@ -57,8 +52,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   // Variables
-  double scan_data_[4];
-  int confidence;
+  double scan_ranges[4];
 
   // ROS timer
   rclcpp::TimerBase::SharedPtr update_timer_;

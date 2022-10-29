@@ -29,13 +29,11 @@ WallFollower::WallFollower()
 	/************************************************************
 	** Initialise variables
 	************************************************************/
-	scan_data_[0] = 0.0;
-	scan_data_[1] = 0.0;
-	scan_data_[2] = 0.0;
-	scan_data_[3] = 0.0;
-	scan_data_[4] = 0.0;
-
-	confidence = START_LEVEL;
+	scan_ranges[0] = 0.0;
+	scan_ranges[1] = 0.0;
+	scan_ranges[2] = 0.0;
+	scan_ranges[3] = 0.0;
+	scan_ranges[4] = 0.0;
 
 	/************************************************************
 	** Initialise ROS publishers and subscribers
@@ -99,28 +97,28 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	std::vector<float> temp_forward_ranges(it_first, it_last);
 	forward_ranges.insert(forward_ranges.end(), temp_forward_ranges.begin(), temp_forward_ranges.end());
 
-	it_first = msg->ranges.begin() + 30;
-	it_last = msg->ranges.begin() + 90;
+	it_first = msg->ranges.begin() + 45;
+	it_last = msg->ranges.begin() + 85;
 	std::vector<float> left_ranges(it_first, it_last);
 
-	it_first = msg->ranges.begin() + 135;
-	it_last = msg->ranges.begin() + 225;
+	it_first = msg->ranges.begin() + 120;
+	it_last = msg->ranges.begin() + 240;
 	std::vector<float> back_ranges(it_first, it_last);
 
-	it_first = msg->ranges.begin() + 270;
-	it_last = msg->ranges.begin() + 330;
+	it_first = msg->ranges.begin() + 275;
+	it_last = msg->ranges.begin() + 315;
 	std::vector<float> right_ranges(it_first, it_last);
 
-	scan_data_[FRONT] = *std::min_element(forward_ranges.begin(), forward_ranges.end());
-	scan_data_[LEFT] = *std::min_element(left_ranges.begin(), left_ranges.end());
-	scan_data_[RIGHT] = *std::min_element(right_ranges.begin(), right_ranges.end());
-	scan_data_[BACK] = *std::min_element(back_ranges.begin(), back_ranges.end());
+	scan_ranges[FRONT] = *std::min_element(forward_ranges.begin(), forward_ranges.end());
+	scan_ranges[LEFT] = *std::min_element(left_ranges.begin(), left_ranges.end());
+	scan_ranges[RIGHT] = *std::min_element(right_ranges.begin(), right_ranges.end());
+	scan_ranges[BACK] = *std::min_element(back_ranges.begin(), back_ranges.end());
 
 	for (int i = 0; i < 4; i++)
 	{
-		if (std::isinf(scan_data_[i]))
+		if (std::isinf(scan_ranges[i]))
 		{
-			scan_data_[i] = msg->range_max;
+			scan_ranges[i] = msg->range_max;
 		}
 	}
 }
@@ -140,29 +138,30 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 void WallFollower::update_callback()
 {
 	double forward_dist_limit = 0.5; //working 0.45
-	double side_dist_limit = 0.3; //working 2
-	double window_width = 0.05; // working 0.21 // experimental 0.15
+	double side_dist_limit = 0.24; //working 2
+	double window_width = 0.1; // working 0.21 // experimental 0.15
 		
 	// Measure and Change confidence level
 
 	// Check if there is space in front 
-	RCLCPP_INFO(this->get_logger(), "Forward %lf", scan_data_[FRONT]);
-	if (scan_data_[FRONT] > forward_dist_limit || scan_data_[FRONT] == 0) {
-		if (scan_data_[LEFT] < side_dist_limit && (scan_data_[RIGHT] > side_dist_limit || scan_data_[RIGHT] == 0)) {
+	RCLCPP_INFO(this->get_logger(), "Forward %lf", scan_ranges[FRONT]);
+	if (scan_ranges[FRONT] > forward_dist_limit || scan_ranges[FRONT] == 0) {
+		if (scan_ranges[LEFT] < side_dist_limit && (scan_ranges[RIGHT] > side_dist_limit || scan_ranges[RIGHT] == 0)) {
 			// Too close to left wall, turning right
 			RCLCPP_INFO(this->get_logger(), "Too close to left wall");
-			RCLCPP_INFO(this->get_logger(), "%lf < 0.2", scan_data_[LEFT]);
+			RCLCPP_INFO(this->get_logger(), "%lf < %lf", scan_ranges[LEFT], side_dist_limit);
 			update_cmd_vel(LINEAR_VELOCITY, -1 * ANGULAR_VELOCITY);
-			RCLCPP_INFO(this->get_logger(), "Turning Right");
-		} else if ((scan_data_[LEFT] > (side_dist_limit + window_width) || scan_data_[LEFT] == 0) ||
-				   (scan_data_[RIGHT] < side_dist_limit && (scan_data_[LEFT] > side_dist_limit || scan_data_[LEFT] == 0))) {
+		} else if (scan_ranges[LEFT] > (side_dist_limit + window_width) || scan_ranges[LEFT] == 0) {
 			// Too far from left wall, turning left
+			RCLCPP_INFO(this->get_logger(), "Too far from left wall");
+			RCLCPP_INFO(this->get_logger(), "Left %lf > %lf", scan_ranges[LEFT], forward_dist_limit + window_width);
+			auto speed_reduction = side_dist_limit / scan_ranges[LEFT];
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, ANGULAR_VELOCITY);
+		} else if (scan_ranges[RIGHT] < side_dist_limit && (scan_ranges[LEFT] > side_dist_limit || scan_ranges[LEFT] == 0)) {
 			// Too close to right wall, turning left
-			RCLCPP_INFO(this->get_logger(), "Too far from left wall || Too close to right wall");
+			RCLCPP_INFO(this->get_logger(), "Too close to right wall");
 			update_cmd_vel(LINEAR_VELOCITY, ANGULAR_VELOCITY);
-			RCLCPP_INFO(this->get_logger(), "Left %lf > 0.41", scan_data_[LEFT]);
-			RCLCPP_INFO(this->get_logger(), "Right %lf < 0.2", scan_data_[RIGHT]);
-
+			RCLCPP_INFO(this->get_logger(), "Right %lf < %lf", scan_ranges[RIGHT], side_dist_limit);
 		} else {
 			// If we're not too close to anything, but there is enough space infront, go forward
 			RCLCPP_INFO(this->get_logger(), "Moving Forward");
@@ -171,15 +170,17 @@ void WallFollower::update_callback()
 	} else {
 		// No space infront
 		/*
-		if (scan_data_[LEFT] > (side_dist_limit + window_width) || scan_data_[LEFT] == 0) {
+		if (scan_ranges[LEFT] > (side_dist_limit + window_width) || scan_ranges[LEFT] == 0) {
 			// Check if we can turn left
-			update_cmd_vel(0, ANGULAR_VELOCITY);
-			RCLCPP_INFO(this->get_logger(), "Turning Left: %lf > %lf", scan_data_[LEFT], (side_dist_limit + window_width));
-		} else if (scan_data_[RIGHT] > side_dist_limit || scan_data_[RIGHT] == 0) {
+			auto speed_reduction = (scan_ranges[FRONT] - (forward_dist_limit * 0.6)) / forward_dist_limit;
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, ANGULAR_VELOCITY);
+			RCLCPP_INFO(this->get_logger(), "Turning Left: %lf > %lf", scan_ranges[LEFT], (side_dist_limit + window_width));
+		} else if (scan_ranges[RIGHT] > side_dist_limit || scan_ranges[RIGHT] == 0) {
 			// Check if we can turn right
-			update_cmd_vel(0, -1 * ANGULAR_VELOCITY);
+			auto speed_reduction = (scan_ranges[FRONT] - (forward_dist_limit * 0.6)) / forward_dist_limit;
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, -1 * ANGULAR_VELOCITY);
 			RCLCPP_INFO(this->get_logger(), "Turning Right");
-		} else if (scan_data_[BACK] > side_dist_limit || scan_data_[BACK] == 0) {
+		} else if (scan_ranges[BACK] > side_dist_limit || scan_ranges[BACK] == 0) {
 			// Check if we can turn around
 			update_cmd_vel(0, -1 * ANGULAR_VELOCITY);
 			RCLCPP_INFO(this->get_logger(), "U TURN");
@@ -187,8 +188,9 @@ void WallFollower::update_callback()
 			// STUCK
 			update_cmd_vel(0, 0);
 			RCLCPP_INFO(this->get_logger(), "STUCK");
-		}*/
-		auto speed_reduction = (scan_data_[FRONT] - (forward_dist_limit / 2)) / forward_dist_limit;
+		}
+		*/
+		auto speed_reduction = (scan_ranges[FRONT] - (forward_dist_limit * 0.6)) / forward_dist_limit;
 		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, -1 * ANGULAR_VELOCITY);
 		RCLCPP_INFO(this->get_logger(), "Turning Right");
 	}
