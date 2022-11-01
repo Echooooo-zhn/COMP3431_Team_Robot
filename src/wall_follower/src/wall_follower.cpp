@@ -125,12 +125,12 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	it_last = msg->ranges.begin() + 315;
 	std::vector<float> right_ranges(it_first, it_last);
 
-	scan_ranges[FRONT] = *std::min_element(forward_ranges.begin(), forward_ranges.end());
-	scan_ranges[FLEFT] = *std::min_element(fleft_ranges.begin(), fleft_ranges.end());
-	scan_ranges[MLEFT] = *std::min_element(mleft_ranges.begin(), mleft_ranges.end());
-	scan_ranges[LLEFT] = *std::min_element(lleft_ranges.begin(), lleft_ranges.end());
-	scan_ranges[RIGHT] = *std::min_element(right_ranges.begin(), right_ranges.end());
-	scan_ranges[BACK] = *std::min_element(back_ranges.begin(), back_ranges.end());
+	scan_ranges[FRONT] = min_non_zero(forward_ranges);
+	scan_ranges[FLEFT] = min_non_zero(fleft_ranges);
+	scan_ranges[MLEFT] = min_non_zero(mleft_ranges);
+	scan_ranges[LLEFT] = min_non_zero(lleft_ranges);
+	scan_ranges[RIGHT] = min_non_zero(right_ranges);
+	scan_ranges[BACK] = min_non_zero(back_ranges);
 
 	for (int i = 0; i < 6; i++)
 	{
@@ -158,7 +158,7 @@ void WallFollower::update_callback()
 	
 
 	// Check if there is space in front 
-	if (front_close()) {
+	if (front_far()) {
 		if (left_close() && !right_close()) {
 			// Too close to left wall, turning right
 			if (debug && debug_state != 1) {
@@ -234,6 +234,7 @@ void WallFollower::update_callback()
 		// Turn right whilst slowing linear speed based on formula below
 		
 		auto speed_reduction = (scan_ranges[FRONT] - (forward_dist_limit * 0.5)) / forward_dist_limit;
+		if (speed_reduction < 0.0) {speed_reduction = 0.0;}
 		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, -1 * ANGULAR_VELOCITY);
 	}
 }
@@ -254,8 +255,20 @@ bool WallFollower::right_close() {
 	return scan_ranges[RIGHT] < side_dist_limit;
 }
 
-bool WallFollower::front_close() {
+bool WallFollower::front_far() {
 	return scan_ranges[FRONT] > forward_dist_limit;
+}
+
+double WallFollower::min_non_zero(std::vector<float> v) {
+	double min = 3.5;
+	bool all_zero = true;
+	for (auto item : v) {
+		if (item != 0.0 && item < min) {
+			min = item;
+			all_zero = false;
+		}
+	}
+	return min;
 }
 
 /*******************************************************************************

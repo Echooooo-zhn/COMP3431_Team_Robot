@@ -78,6 +78,7 @@ private:
   bool left_close();
   bool left_far();
   bool right_close();
-  bool front_close();
+  bool front_far();
+  double min_non_zero(std::vector<float>);
 };
 #endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_
