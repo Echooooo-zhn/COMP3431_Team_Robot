@@ -12,6 +12,7 @@ from rclpy.node import Node # Handles the creation of nodes
 from sensor_msgs.msg import Image # Image is the message type
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import cv2 # OpenCV library
+import numpy as np
  
 class ImageSubscriber(Node):
   """
@@ -36,7 +37,49 @@ class ImageSubscriber(Node):
       
     # Used to convert between ROS and OpenCV images
     self.br = CvBridge()
-   
+
+  # This funciton will help to draw the contour and the centroid of the object
+  # def find_center(self, image_binary):
+  #   # Draw contour for the object
+  #   contours, hierarchy = cv2.findContours(image_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+  #   rect = cv2.minAreaRect(contours[0])
+  #   points = cv2.boxPoints(rect)  
+  #   result = cv2.drawContours(image_binary, [np.int0(points)], -1, (255,255,255), 2)
+    
+  #   # Plot the centroid of the object
+  #   M = cv2.moments(contours[0])
+  #   center_x = int(M["m10"] / M["m00"])
+  #   center_y = int(M["m01"] / M["m00"])
+  #   cv2.circle(result, (center_x, center_y), 7, 128, -1)
+  #   return result
+  
+  # This funciton will helps to generate teh mask for object with different color
+  # and return whether it is an object in the image
+  def generate_mask(self, hsv_frame, current_frame):
+    light_blue = np.array([75, 172, 123])
+    dark_blue = np.array([179, 255, 255])
+
+    light_pink = np.array([152,78,255])
+    dark_pink = np.array([179,255,255])
+
+    light_green = np.array([70,164,109])
+    dark_green = np.array([179,255,255])
+
+    light_yellow = np.array([16,162,144])
+    dark_yellow = np.array([179,255,255])
+
+    blue_mask = cv2.inRange(hsv_frame, light_blue, dark_blue)
+    pink_mask = cv2.inRange(hsv_frame, light_pink, dark_pink)
+    green_mask = cv2.inRange(hsv_frame, light_green, dark_green)
+    yellow_mask = cv2.inRange(hsv_frame, light_yellow, dark_yellow)
+
+    image_blue_mask = cv2.bitwise_and(current_frame, current_frame, mask=blue_mask)
+    image_pink_mask = cv2.bitwise_and(image_blue_mask, image_blue_mask, mask=pink_mask)
+    image_green_mask = cv2.bitwise_and(image_pink_mask, image_pink_mask, mask=green_mask)
+    image_yellow_mask = cv2.bitwise_and(image_green_mask, image_green_mask, mask=yellow_mask)
+    
+    return image_yellow_mask
+
   def listener_callback(self, data):
     """
     Callback function.
@@ -53,14 +96,28 @@ class ImageSubscriber(Node):
     # Convert BGR image to HSV
     hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
     # Mask out everything except pixels in the range light white to dark white
-    light = (320, 70, 90) 
-    dark = (320, 90, 95)
-    mask = cv2.inRange(hsv_frame, light, dark)
-    result = cv2.bitwise_and(current_frame, current_frame, mask=mask)
+    # light_white = np.array([0, 0, 200])
+    # dark_white = np.array([145, 60, 255])
+
+    # light_pink = np.array([0,50,50])
+    # dark_pink = np.array([10,255,255])
+
+    # light_green = np.array([35,43,46])
+    # dark_green = np.array([77,255,255])
+
+    # light_yellow = np.array([26,43,46])
+    # dark_yellow = np.array([34,255,255])
+    # result = cv2.bitwise_and(current_frame, current_frame, white_result, mask=mask)
 
     # Run 4-way connected components, with statistics
-    output = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
+    # output = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
+    image_with_mask = self.generate_mask(self, hsv_frame, current_frame)
+    output = cv2.connectedComponentsWithStats(image_with_mask, 4, cv2.CV_32S)
     (numLabels, labels, stats, centroids) = output
+
+    if (numLabels > 1):
+      print("Object detected !!!")
+      cv2.circle(image_with_mask, (centroids[0][0], centroids[0][0]), 7, 128, -1)
  
     # Print statistics for each blob (connected component)
     # use these statistics to find the bounding box of each blob
@@ -81,7 +138,7 @@ class ImageSubscriber(Node):
     # Display masked image
     cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
     cv2.resizeWindow('mask', 400, 400)
-    cv2.imshow("mask", mask)
+    cv2.imshow("mask", image_with_mask)
     
     cv2.waitKey(1)
   
