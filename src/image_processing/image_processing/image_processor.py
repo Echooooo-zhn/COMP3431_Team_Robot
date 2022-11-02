@@ -74,11 +74,15 @@ class ImageSubscriber(Node):
     yellow_mask = cv2.inRange(hsv_frame, light_yellow, dark_yellow)
 
     image_blue_mask = cv2.bitwise_and(current_frame, current_frame, mask=blue_mask)
-    image_pink_mask = cv2.bitwise_and(image_blue_mask, image_blue_mask, mask=pink_mask)
-    image_green_mask = cv2.bitwise_and(image_pink_mask, image_pink_mask, mask=green_mask)
-    image_yellow_mask = cv2.bitwise_and(image_green_mask, image_green_mask, mask=yellow_mask)
+    image_pink_mask = cv2.bitwise_and(current_frame, current_frame, mask=pink_mask)
+    image_green_mask = cv2.bitwise_and(current_frame, current_frame, mask=green_mask)
+    image_yellow_mask = cv2.bitwise_and(current_frame, current_frame, mask=yellow_mask)
+
+    image_result = cv2.bitwise_and(image_blue_mask, image_pink_mask)
+    image_result = cv2.bitwise_and(image_result, image_green_mask)
+    image_result = cv2.bitwise_and(image_green_mask, image_yellow_mask)
     
-    return image_yellow_mask
+    return image_result
 
   def listener_callback(self, data):
     """
@@ -117,7 +121,7 @@ class ImageSubscriber(Node):
 
     if (numLabels > 1):
       print("Object detected !!!")
-      cv2.circle(image_with_mask, (centroids[0][0], centroids[0][0]), 7, 128, -1)
+      cv2.circle(image_with_mask, (centroids[0][0], centroids[0][1]), 7, 128, -1)
  
     # Print statistics for each blob (connected component)
     # use these statistics to find the bounding box of each blob
