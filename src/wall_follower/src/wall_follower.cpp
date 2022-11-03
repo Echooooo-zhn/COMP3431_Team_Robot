@@ -95,7 +95,7 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	forward_ranges.insert(forward_ranges.end(), temp_forward_ranges.begin(), temp_forward_ranges.end());
 
 	it_first = msg->ranges.begin() + 45;
-	it_last = msg->ranges.begin() + 85;
+	it_last = msg->ranges.begin() + 90;
 	std::vector<float> left_ranges(it_first, it_last);
 	// We split the left ranges into 3 sections for a more accuracy
 	// For example if we find the minimum of the data scanned at 45 to 85 degrees,
