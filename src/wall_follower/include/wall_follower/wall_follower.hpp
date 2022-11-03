@@ -35,8 +35,8 @@
 #define RIGHT 4
 #define BACK  5
 
-#define LINEAR_VELOCITY  0.2 // working 0.15
-#define ANGULAR_VELOCITY 0.6 // working 0.3
+#define LINEAR_VELOCITY  0.2 // working 0.2
+#define ANGULAR_VELOCITY 0.6 // working 0.6
 
 #define NUM_SCANS 360
 
@@ -64,7 +64,7 @@ private:
   double side_dist_limit = lleft_limit;
 	double window_width = 0.1;
 
-  bool debug = true;
+  bool debug = false;
   int debug_state = 0;
 
   // ROS timer
