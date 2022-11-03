@@ -10,8 +10,8 @@
 import rclpy # Python library for ROS 2
 from rclpy.node import Node # Handles the creation of nodes
 from sensor_msgs.msg import Image # Image is the message type
-from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import cv2 # OpenCV library
+from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import numpy as np
  
 class ImageSubscriber(Node):
@@ -55,7 +55,7 @@ class ImageSubscriber(Node):
   
   # This funciton will helps to generate teh mask for object with different color
   # and return whether it is an object in the image
-  def generate_mask(self, hsv_frame, current_frame):
+  def generate_mask(self, hsv_frame):
     light_blue = np.array([75, 172, 123])
     dark_blue = np.array([179, 255, 255])
 
@@ -73,14 +73,24 @@ class ImageSubscriber(Node):
     green_mask = cv2.inRange(hsv_frame, light_green, dark_green)
     yellow_mask = cv2.inRange(hsv_frame, light_yellow, dark_yellow)
 
-    image_blue_mask = cv2.bitwise_and(current_frame, current_frame, mask=blue_mask)
-    image_pink_mask = cv2.bitwise_and(current_frame, current_frame, mask=pink_mask)
-    image_green_mask = cv2.bitwise_and(current_frame, current_frame, mask=green_mask)
-    image_yellow_mask = cv2.bitwise_and(current_frame, current_frame, mask=yellow_mask)
+    cv2.namedWindow("PINK", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('PINK', 400, 400) 
+    cv2.imshow("PINK", pink_mask)
 
-    image_result = cv2.bitwise_and(image_blue_mask, image_pink_mask)
-    image_result = cv2.bitwise_and(image_result, image_green_mask)
-    image_result = cv2.bitwise_and(image_green_mask, image_yellow_mask)
+
+    cv2.namedWindow("GREEN", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow('GREEN', 400, 400) 
+    cv2.imshow("GREEN", green_mask)
+
+    cv2.waitKey(1)
+    #image_blue_mask = cv2.bitwise_and(current_frame, current_frame, mask=blue_mask)
+    #image_pink_mask = cv2.bitwise_and(current_frame, current_frame, mask=pink_mask)
+    #image_green_mask = cv2.bitwise_and(current_frame, current_frame, mask=green_mask)
+    #image_yellow_mask = cv2.bitwise_and(current_frame, current_frame, mask=yellow_mask)
+
+    image_result = cv2.bitwise_or(blue_mask, pink_mask)
+    image_result = cv2.bitwise_or(image_result, green_mask)
+    image_result = cv2.bitwise_or(green_mask, yellow_mask)
     
     return image_result
 
@@ -99,6 +109,7 @@ class ImageSubscriber(Node):
     
     # Convert BGR image to HSV
     hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
+    cv2.imwrite('PINK&BLUE.jpg', current_frame)
     # Mask out everything except pixels in the range light white to dark white
     # light_white = np.array([0, 0, 200])
     # dark_white = np.array([145, 60, 255])
@@ -115,13 +126,13 @@ class ImageSubscriber(Node):
 
     # Run 4-way connected components, with statistics
     # output = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
-    image_with_mask = self.generate_mask(self, hsv_frame, current_frame)
+    image_with_mask = self.generate_mask(hsv_frame)
     output = cv2.connectedComponentsWithStats(image_with_mask, 4, cv2.CV_32S)
     (numLabels, labels, stats, centroids) = output
 
     if (numLabels > 1):
       print("Object detected !!!")
-      cv2.circle(image_with_mask, (centroids[0][0], centroids[0][1]), 7, 128, -1)
+      cv2.circle(image_with_mask, (int(centroids[0][0]), int(centroids[0][1])), 7, 128, -1)
  
     # Print statistics for each blob (connected component)
     # use these statistics to find the bounding box of each blob
