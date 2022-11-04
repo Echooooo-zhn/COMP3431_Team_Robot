@@ -29,7 +29,7 @@ class ImageSubscriber(Node):
     # from the video_frames topic. The queue size is 10 messages.
     self.subscription = self.create_subscription(
       Image, 
- #    'video_frames', 
+    #    'video_frames', 
       '/camera/image_raw/uncompressed', 
       self.listener_callback, 
       10)
@@ -38,61 +38,65 @@ class ImageSubscriber(Node):
     # Used to convert between ROS and OpenCV images
     self.br = CvBridge()
 
-  # This funciton will help to draw the contour and the centroid of the object
-  # def find_center(self, image_binary):
-  #   # Draw contour for the object
-  #   contours, hierarchy = cv2.findContours(image_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-  #   rect = cv2.minAreaRect(contours[0])
-  #   points = cv2.boxPoints(rect)  
-  #   result = cv2.drawContours(image_binary, [np.int0(points)], -1, (255,255,255), 2)
-    
-  #   # Plot the centroid of the object
-  #   M = cv2.moments(contours[0])
-  #   center_x = int(M["m10"] / M["m00"])
-  #   center_y = int(M["m01"] / M["m00"])
-  #   cv2.circle(result, (center_x, center_y), 7, 128, -1)
-  #   return result
+    self.objects = []
+
   
   # This funciton will helps to generate teh mask for object with different color
   # and return whether it is an object in the image
   def generate_mask(self, hsv_frame):
-    light_blue = np.array([75, 172, 123])
-    dark_blue = np.array([179, 255, 255])
+    light_blue = np.array([14, 90, 95])
+    dark_blue = np.array([60, 255, 255])
 
-    light_pink = np.array([152,78,255])
-    dark_pink = np.array([179,255,255])
+    light_pink = np.array([128,38,56])
+    dark_pink = np.array([164,255,255])
 
-    light_green = np.array([70,164,109])
-    dark_green = np.array([179,255,255])
+    light_green = np.array([38,23,45])
+    dark_green = np.array([52,255,255])
 
-    light_yellow = np.array([16,162,144])
-    dark_yellow = np.array([179,255,255])
+    light_yellow = np.array([94,135,90])
+    dark_yellow = np.array([130,255,255])
 
     blue_mask = cv2.inRange(hsv_frame, light_blue, dark_blue)
     pink_mask = cv2.inRange(hsv_frame, light_pink, dark_pink)
     green_mask = cv2.inRange(hsv_frame, light_green, dark_green)
     yellow_mask = cv2.inRange(hsv_frame, light_yellow, dark_yellow)
 
-    cv2.namedWindow("PINK", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('PINK', 400, 400) 
-    cv2.imshow("PINK", pink_mask)
-
-
-    cv2.namedWindow("GREEN", cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('GREEN', 400, 400) 
-    cv2.imshow("GREEN", green_mask)
-
-    cv2.waitKey(1)
-    #image_blue_mask = cv2.bitwise_and(current_frame, current_frame, mask=blue_mask)
-    #image_pink_mask = cv2.bitwise_and(current_frame, current_frame, mask=pink_mask)
-    #image_green_mask = cv2.bitwise_and(current_frame, current_frame, mask=green_mask)
-    #image_yellow_mask = cv2.bitwise_and(current_frame, current_frame, mask=yellow_mask)
-
     image_result = cv2.bitwise_or(blue_mask, pink_mask)
     image_result = cv2.bitwise_or(image_result, green_mask)
     image_result = cv2.bitwise_or(green_mask, yellow_mask)
+
+    kernel = np.ones((3, 3), np.uint8)
+    image_result = cv2.dilate(image_result, kernel, iterations=1)
     
     return image_result
+  
+  def detect_objects(self, image_result):
+    output = cv2.connectedComponentsWithStats(image_result, 4, cv2.CV_32S)
+    (numLabels, labels, stats, centroids) = output
+
+    cens = []
+    objects = []
+    for i in range(0, numLabels):
+        if i != 0 and stats[i][4] > 150:
+          cens.append(centroids[i])
+          objects.append({"x": stats[i][0], "y": stats[i][1], "width": stats[i][2], "height": stats[i][3], "area": stats[i][4]})
+
+    LEFT=0
+    COMPLETE = 1
+    RIGHT=2
+    detected_objs = []
+    for i, obj in enumerate(objects):
+      # In the image, object is too close to the left
+      if obj["x"] == 0:
+          detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": LEFT})
+      else:
+          # In the image, object is too close to the right
+          if obj["x"] + obj["width"] == image_result.shape[1]:
+              detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": RIGHT})
+          else:
+              detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": COMPLETE})
+    return detected_objs
+
 
   def listener_callback(self, data):
     """
@@ -109,30 +113,15 @@ class ImageSubscriber(Node):
     
     # Convert BGR image to HSV
     hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
-    cv2.imwrite('PINK&BLUE.jpg', current_frame)
-    # Mask out everything except pixels in the range light white to dark white
-    # light_white = np.array([0, 0, 200])
-    # dark_white = np.array([145, 60, 255])
 
-    # light_pink = np.array([0,50,50])
-    # dark_pink = np.array([10,255,255])
-
-    # light_green = np.array([35,43,46])
-    # dark_green = np.array([77,255,255])
-
-    # light_yellow = np.array([26,43,46])
-    # dark_yellow = np.array([34,255,255])
-    # result = cv2.bitwise_and(current_frame, current_frame, white_result, mask=mask)
-
-    # Run 4-way connected components, with statistics
-    # output = cv2.connectedComponentsWithStats(mask, 4, cv2.CV_32S)
     image_with_mask = self.generate_mask(hsv_frame)
     output = cv2.connectedComponentsWithStats(image_with_mask, 4, cv2.CV_32S)
     (numLabels, labels, stats, centroids) = output
 
-    if (numLabels > 1):
-      print("Object detected !!!")
-      cv2.circle(image_with_mask, (int(centroids[0][0]), int(centroids[0][1])), 7, 128, -1)
+    self.objects = self.detect_objects(image_with_mask)
+
+    for obj in self.objects:
+      cv2.drawMarker(image_with_mask, (int(obj['centroid'][0]),int(obj['centroid'][1])), (0,0,255),cv2.MARKER_SQUARE,15,2)
  
     # Print statistics for each blob (connected component)
     # use these statistics to find the bounding box of each blob
