@@ -284,9 +284,9 @@ bool WallFollower::left_far() {
 		   scan_ranges[LLEFT] >= lleft_limit + window_width;
 }
 
-bool WallFollower::right_close() {
-	return scan_ranges[RIGHT] < side_dist_limit;
-}
+// bool WallFollower::right_close() {
+// 	return scan_ranges[RIGHT] < side_dist_limit;
+// }
 
 bool WallFollower::front_far() {
 	return scan_ranges[FRONT] > forward_dist_limit &&
