@@ -37,7 +37,7 @@
 #define LFEEL 6
 
 #define LINEAR_VELOCITY  0.2 // working 0.2
-#define ANGULAR_VELOCITY 0.6 // working 0.6
+#define ANGULAR_VELOCITY 0.6 * 2 // working 0.6
 
 #define NUM_SCANS 360
 
@@ -83,7 +83,7 @@ private:
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
   bool left_close();
   bool left_far();
-  bool right_close();
+  //bool right_close();
   bool front_far();
   double min_non_zero(std::vector<float>);
 };

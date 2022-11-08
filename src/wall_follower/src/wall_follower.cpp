@@ -108,12 +108,12 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	// side limit however this is not necessary as only a few splits would be more than
 	// enough for the difference to become negligible.
 	it_first = left_ranges.begin();
-	it_last = left_ranges.begin() + 13;
+	it_last = left_ranges.begin() + 15;
 	std::vector<float> fleft_ranges(it_first, it_last);
-	it_first = left_ranges.begin() + 14;
-	it_last = left_ranges.begin() + 27;
+	it_first = left_ranges.begin() + 16;
+	it_last = left_ranges.begin() + 30;
 	std::vector<float> mleft_ranges(it_first, it_last);
-	it_first = left_ranges.begin() + 28;
+	it_first = left_ranges.begin() + 31;
 	it_last = left_ranges.end();
 	std::vector<float> lleft_ranges(it_first, it_last);
 
@@ -217,7 +217,7 @@ void WallFollower::update_callback()
 				RCLCPP_INFO(this->get_logger(), "Too far from left wall:  %lf > %lf", min, limit + window_width);
 				debug_state = 2;
 			}
-			update_cmd_vel(0.5 * LINEAR_VELOCITY, ANGULAR_VELOCITY);
+			update_cmd_vel(LINEAR_VELOCITY, ANGULAR_VELOCITY);
 		// } else if (right_close() && !left_close()) {
 		// 	// Too close to right wall, turning left
 		// 	if (debug) {
