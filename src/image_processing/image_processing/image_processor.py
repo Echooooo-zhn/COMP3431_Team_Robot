@@ -8,12 +8,17 @@
   
 # Import the necessary libraries
 import rclpy # Python library for ROS 2
+import rclpy.qos
+
 from rclpy.node import Node # Handles the creation of nodes
 from sensor_msgs.msg import Image # Image is the message type
+from nav_msgs.msg import Odometry
 import cv2 # OpenCV library
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import numpy as np
- 
+import math
+from tf2_ros.transform_listener import TransformListener
+from tf2_ros.buffer import Buffer
 class ImageSubscriber(Node):
   """
   Create an ImageSubscriber class, which is a subclass of the Node class.
@@ -24,7 +29,12 @@ class ImageSubscriber(Node):
     """
     # Initiate the Node class's constructor and give it a name
     super().__init__('image_subscriber')
-      
+    self.LEFT=0
+    self.COMPLETE = 1
+    self.RIGHT=2
+    self.CAMANGLE = 31.1
+    self.REALSYLINDERWIDTH = 0.1
+
     # Create the subscriber. This subscriber will receive an Image
     # from the video_frames topic. The queue size is 10 messages.
     self.subscription = self.create_subscription(
@@ -34,11 +44,63 @@ class ImageSubscriber(Node):
       self.listener_callback, 
       10)
     self.subscription # prevent unused variable warning
-      
     # Used to convert between ROS and OpenCV images
     self.br = CvBridge()
 
     self.objects = []
+    self.image_size = None
+
+    self.qos = rclpy.qos.QoSProfile(
+            reliability=rclpy.qos.QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
+            history=rclpy.qos.QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            depth=1
+        )
+    self.odmetry_subscription = self.create_subscription(
+      Odometry,
+      "odom",
+      callback=self.odometry_callback,
+      qos_profile=self.qos
+      )
+    
+    
+    self.tf_buffer = Buffer()
+    self.tf_listener = TransformListener(self.tf_buffer, self)
+  
+  def odometry_callback(self, data):
+    # print(data.pose.pose.position)
+    # print(self.objects)
+    if len(self.objects) == 0:
+      return
+
+    a = data.pose.pose.position.x,
+    b= data.pose.pose.position.y,
+    c=data.pose.pose.orientation.z,
+    d=data.pose.pose.orientation.w
+    # print(a,b,c,d)
+    
+    t = self.tf_buffer.lookup_transform(
+    "camera_link",
+    "odom",
+    # "odom",
+    time=rclpy.time.Time()).transform
+    print(t)
+    # print(t)
+    # for obj in self.objects:
+    #   if obj["status"] == self.COMPLETE:
+    #     xPos = obj["centroid"][0]
+    #     half_total = self.image_size[0] / 2.0
+    #     sideA = abs(xPos - half_total) 
+    #     sideB = half_total / math.tan(math.degrees(self.CAMANGLE))
+    #     cam_width = obj["width"]
+    #     # print(f"{sideA}   {sideB}  {cam_width}")
+    #     ratio = self.REALSYLINDERWIDTH / cam_width
+    #     real_sideA = ratio * sideA
+    #     real_sideB = ratio * sideB
+        
+    #     print(f"front line: {real_sideA}, distance: {real_sideB}")
+        
+        
+    #     break
 
   
   # This funciton will helps to generate teh mask for object with different color
@@ -47,8 +109,8 @@ class ImageSubscriber(Node):
     light_blue = np.array([14, 90, 95])
     dark_blue = np.array([60, 255, 255])
 
-    light_pink = np.array([128,38,56])
-    dark_pink = np.array([164,255,255])
+    light_pink = np.array([50,80,150])
+    dark_pink = np.array([179,255,255])
 
     light_green = np.array([38,23,45])
     dark_green = np.array([52,255,255])
@@ -63,7 +125,7 @@ class ImageSubscriber(Node):
 
     image_result = cv2.bitwise_or(blue_mask, pink_mask)
     image_result = cv2.bitwise_or(image_result, green_mask)
-    image_result = cv2.bitwise_or(green_mask, yellow_mask)
+    image_result = cv2.bitwise_or(image_result, yellow_mask)
 
     kernel = np.ones((3, 3), np.uint8)
     image_result = cv2.dilate(image_result, kernel, iterations=1)
@@ -174,6 +236,7 @@ class ImageSubscriber(Node):
     
     # Convert BGR image to HSV
     hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
+    self.image_size = hsv_frame.shape
 
     image_with_mask, blue_mask, pink_mask, green_mask, yellow_mask = self.generate_mask(hsv_frame)
 
