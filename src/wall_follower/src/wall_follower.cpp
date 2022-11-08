@@ -126,14 +126,28 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 	// it_last = msg->ranges.begin() + 315;
 	// std::vector<float> right_ranges(it_first, it_last);
 
+	// Making ranges from 30 - 45 degrees splitting into 3 because the limit difference is greatest per degree at these ranges
+	it_first = msg->ranges.begin() + 31;
+	it_last = msg->ranges.begin() + 35;
+	std::vector<float> ffeeler_ranges(it_first, it_last);
+	it_first = msg->ranges.begin() + 36;
+	it_last = msg->ranges.begin() + 40;
+	std::vector<float> mfeeler_ranges(it_first, it_last);
+	it_first = msg->ranges.begin() + 41;
+	it_last = msg->ranges.begin() + 45;
+	std::vector<float> lfeeler_ranges(it_first, it_last);
+
 	scan_ranges[FRONT] = min_non_zero(forward_ranges);
 	scan_ranges[FLEFT] = min_non_zero(fleft_ranges);
 	scan_ranges[MLEFT] = min_non_zero(mleft_ranges);
 	scan_ranges[LLEFT] = min_non_zero(lleft_ranges);
+	scan_ranges[FFEEL] = min_non_zero(ffeeler_ranges);
+	scan_ranges[MFEEL] = min_non_zero(mfeeler_ranges);
+	scan_ranges[LFEEL] = min_non_zero(lfeeler_ranges);
 	// scan_ranges[RIGHT] = min_non_zero(right_ranges);
 	// scan_ranges[BACK] = min_non_zero(back_ranges);
 
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < 7; i++)
 	{
 		if (std::isinf(scan_ranges[i]))
 		{
@@ -275,7 +289,10 @@ bool WallFollower::right_close() {
 }
 
 bool WallFollower::front_far() {
-	return scan_ranges[FRONT] > forward_dist_limit;
+	return scan_ranges[FRONT] > forward_dist_limit &&
+		   scan_ranges[FFEEL] > ffeeler_limit &&
+		   scan_ranges[MFEEL] > mfeeler_limit &&
+		   scan_ranges[LFEEL] > lfeeler_limit;
 }
 
 double WallFollower::min_non_zero(std::vector<float> v) {

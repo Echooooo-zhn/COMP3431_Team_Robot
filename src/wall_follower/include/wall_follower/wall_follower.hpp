@@ -32,8 +32,9 @@
 #define FLEFT 1
 #define MLEFT 2
 #define LLEFT 3
-#define RIGHT 4
-#define BACK  5
+#define FFEEL 4
+#define MFEEL 5
+#define LFEEL 6
 
 #define LINEAR_VELOCITY  0.2 // working 0.2
 #define ANGULAR_VELOCITY 0.6 // working 0.6
@@ -55,12 +56,17 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   // Variables
-  double scan_ranges[6];
+  double scan_ranges[7];
 
   double forward_dist_limit = 0.5;
 	double fleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 120) - 0.01;
 	double mleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 105) - 0.01;
 	double lleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 90) - 0.01;
+
+	double ffeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 145) - 0.01;
+	double mfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 140) - 0.01;
+	double lfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 135) - 0.01;
+
   double side_dist_limit = lleft_limit;
 	double window_width = 0.1;
 
