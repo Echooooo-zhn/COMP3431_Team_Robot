@@ -1,3 +1,11 @@
+/*
+ * @Author: Echooooo-zhn haonanZHONG17@outlook.com
+ * @Date: 2022-11-09 03:00:16
+ * @LastEditors: Echooooo-zhn haonanZHONG17@outlook.com
+ * @LastEditTime: 2022-11-09 03:42:58
+ * @FilePath: \COMP3431_Team_Robot\src\wall_follower\include\wall_follower\wall_follower.hpp
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
 // Copyright 2019 ROBOTIS CO., LTD.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,15 +37,23 @@
 
 #define CENTER 0
 #define LEFT   1
-#define RIGHT  2
+#define OFF_LEFT 2
+#define RIGHT  3
+#define OFF_RIGHT 4
 
-#define LINEAR_VELOCITY  0.3
-#define ANGULAR_VELOCITY 1.5
+#define LINEAR_VELOCITY  0.2
+#define ANGULAR_VELOCITY 0.3
 
 #define GET_TB3_DIRECTION 0
 #define TB3_DRIVE_FORWARD 1
 #define TB3_RIGHT_TURN    2
 #define TB3_LEFT_TURN     3
+#define TB3_RIGHT_FORWARD_TURN     4
+#define TB3_ANGLE_LEFT_TURN     5
+
+#define MAX_LEVEL 100
+#define LEFT_TURN_LEVEL 40
+#define RIGHT_TURN_LEVEL 10
 
 class WallFollower : public rclcpp::Node
 {
@@ -56,7 +72,10 @@ private:
   // Variables
   double robot_pose_;
   double prev_robot_pose_;
-  double scan_data_[3];
+  double scan_data_[5];
+  int confidence;
+  float linear_velocity;
+  float angular_velocity;
 
   // ROS timer
   rclcpp::TimerBase::SharedPtr update_timer_;
@@ -66,5 +85,6 @@ private:
   void update_cmd_vel(double linear, double angular);
   void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  void log_record(double scan_data_, string message);
 };
 #endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_

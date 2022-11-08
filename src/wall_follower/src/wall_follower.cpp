@@ -20,52 +20,59 @@
 #include "wall_follower/wall_follower.hpp"
 
 #include <memory>
+#include <fstream>
+#include <iostream>
 
 using namespace std::chrono_literals;
 
 WallFollower::WallFollower()
 : Node("wall_follower_node")
 {
-    /************************************************************
-    ** Initialise variables
-    ************************************************************/
-    scan_data_[0] = 0.0;
-    scan_data_[1] = 0.0;
-    scan_data_[2] = 0.0;
+	/************************************************************
+	** Initialise variables
+	************************************************************/
+	scan_data_[0] = 0.0;
+	scan_data_[1] = 0.0;
+	scan_data_[2] = 0.0;
 
-    robot_pose_ = 0.0;
-    prev_robot_pose_ = 0.0;
+	confidence = MAX_LEVEL;
 
-    /************************************************************
-    ** Initialise ROS publishers and subscribers
-    ************************************************************/
-    auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
+    linear_velocity = LINEAR_VELOCITY;
+    angular_velocity = ANGULAR_VELOCITY;
 
-    // Initialise publishers
-    cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", qos);
+	robot_pose_ = 0.0;
+	prev_robot_pose_ = 0.0;
 
-    // Initialise subscribers
-    scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "scan", \
-        rclcpp::SensorDataQoS(), \
-        std::bind(
-            &WallFollower::scan_callback, \
-            this, \
-            std::placeholders::_1));
-    odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
-        "odom", qos, std::bind(&WallFollower::odom_callback, this, std::placeholders::_1));
+	/************************************************************
+	** Initialise ROS publishers and subscribers
+	************************************************************/
+	auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
 
-    /************************************************************
-    ** Initialise ROS timers
-    ************************************************************/
-    update_timer_ = this->create_wall_timer(100ms, std::bind(&WallFollower::update_callback, this));
+	// Initialise publishers
+	cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", qos);
 
-    RCLCPP_INFO(this->get_logger(), "Wall follower node has been initialised");
+	// Initialise subscribers
+	scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
+		"scan", \
+		rclcpp::SensorDataQoS(), \
+		std::bind(
+			&WallFollower::scan_callback, \
+			this, \
+			std::placeholders::_1));
+	odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
+		"odom", qos, std::bind(&WallFollower::odom_callback, this, std::placeholders::_1));
+
+	/************************************************************
+	** Initialise ROS timers
+	************************************************************/
+	update_timer_ = this->create_wall_timer(10ms, std::bind(&WallFollower::update_callback, this));
+
+	RCLCPP_INFO(this->get_logger(), "Wall follower node has been initialised");
 }
 
 WallFollower::~WallFollower()
 {
-    RCLCPP_INFO(this->get_logger(), "Wall follower node has been terminated");
+	RCLCPP_INFO(this->get_logger(), "Wall follower node has been terminated");
 }
 
 /********************************************************************************
@@ -73,166 +80,145 @@ WallFollower::~WallFollower()
 ********************************************************************************/
 void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
-    tf2::Quaternion q(
-        msg->pose.pose.orientation.x,
-        msg->pose.pose.orientation.y,
-        msg->pose.pose.orientation.z,
-        msg->pose.pose.orientation.w);
-    tf2::Matrix3x3 m(q);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
+	tf2::Quaternion q(
+		msg->pose.pose.orientation.x,
+		msg->pose.pose.orientation.y,
+		msg->pose.pose.orientation.z,
+		msg->pose.pose.orientation.w);
+	tf2::Matrix3x3 m(q);
+	double roll, pitch, yaw;
+	m.getRPY(roll, pitch, yaw);
 
-    robot_pose_ = yaw;
+	robot_pose_ = yaw;
 }
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-    uint16_t scan_angle[3] = {0, 30, 330};
+	uint16_t scan_angle[4] = {0, 90, 45, 180, 225};
 
-    for (int num = 0; num < 3; num++)
-    {
-        if (std::isinf(msg->ranges.at(scan_angle[num])))
-        {
-            scan_data_[num] = msg->range_max;
-        }
-        else
-        {
-            scan_data_[num] = msg->ranges.at(scan_angle[num]);
-        }
-    }
+	RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
+
+	for (int num = 0; num < 3; num++)
+	{
+		if (std::isinf(msg->ranges.at(scan_angle[num])))
+		{
+			scan_data_[num] = msg->range_max;
+		}
+		else
+		{
+			scan_data_[num] = msg->ranges.at(scan_angle[num]);
+		}
+	}
 }
 
 void WallFollower::update_cmd_vel(double linear, double angular)
 {
-    geometry_msgs::msg::Twist cmd_vel;
-    cmd_vel.linear.x = linear;
-    cmd_vel.angular.z = angular;
+	geometry_msgs::msg::Twist cmd_vel;
+	cmd_vel.linear.x = linear;
+	cmd_vel.angular.z = angular;
 
-    cmd_vel_pub_->publish(cmd_vel);
+	cmd_vel_pub_->publish(cmd_vel);
 }
 
+void WallFollower::log_record(double scan_data_, string message)
+{
+    ofstream location_out;
+    string scan = "CENTER: " + string(scan_data_[0]) + "LEFT: " + string(scan_data_[1])+ "OFF_LEFT: " + string(scan_data_[2])+ "RIGHT: " + string(scan_data_[3])+ "OFF_RIGHT: " + string(scan_data_[4]);
+    location_out.open("log_record.txt", std::ios::out | std::ios::app);
+    if (!location_out.is_open())
+    {
+        return 0;
+    }
+    location_out << scan << endl;
+    location_out << message << endl;
+    location_out.close();
+}
 
 /********************************************************************************
 ** Update functions
-** TurtleBot will follow the left wall to determine the action
 ********************************************************************************/
 void WallFollower::update_callback()
 {
-    static uint8_t turtlebot3_state_num = 0;
-    double escape_range = 30 * DEG2RAD; //default 30
-    double check_forward_dist = 0.5;
-    double check_side_dist = 0.4;
-    static bool rotate_and_forward = false;
-        
-    // Get the state of the turtlebot
-    switch (turtlebot3_state_num)
-    {
-        case GET_TB3_DIRECTION:
+	// Current state of the vehicle, i.e. turning left, going straight etc
+	static uint8_t turtlebot3_state_num = 0;
+	double escape_range = 5.0 * DEG2RAD;
+	double check_forward_dist = 0.45;
+	double check_side_dist = 0.2;
+	double window_width = 0.21;
 
+	// Measure and Change confidence level
+	RCLCPP_INFO(this->get_logger(), "Confidence: %d", confidence);
 
-            // If left wall detected
-            if (scan_data_[LEFT] < check_side_dist)
-            {
-                RCLCPP_INFO(this->get_logger(), "left wall detected");
-                // If front wall detected, turn right
-                if (scan_data_[CENTER] < check_forward_dist)
-                {
-                    RCLCPP_INFO(this->get_logger(), "If front wall detected, turn right");
-                    prev_robot_pose_ = robot_pose_;
-                    turtlebot3_state_num = TB3_RIGHT_TURN;
-                }
-                // If front wall is not detected, move forward
-                else
-                {
-                    RCLCPP_INFO(this->get_logger(), " If front wall is not detected, move forward");
-                    turtlebot3_state_num = TB3_DRIVE_FORWARD;
-                }
+	// Check if there is space in front 
+	if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
+	{
+		if (scan_data_[LEFT] < check_side_dist + 0.1)
+		{
+			// Too close to left wall, turning right
+            RCLCPP_INFO(this->get_logger(), "Too close to left wall");
+            log_record(scan_data_, "Too close to left wall");
+			prev_robot_pose_ = robot_pose_;
+			confidence++;
+			update_cmd_vel(linear_velocity, -1 * angular_velocity - 0.1);
+		}
+		else if (scan_data_[OFF_LEFT] <= (check_side_dist + 0.3))
+		{
+			// Too close to right wall, turning left
+            RCLCPP_INFO(this->get_logger(), "Seeing left 45deg wall");
+            log_record(scan_data_, "Seeing left 45deg wall");
+			escape_range = 90 * DEG2RAD;
+			prev_robot_pose_ = robot_pose_;
+			confidence += 10;
+		}
+		else if (scan_data_[LEFT] > (check_side_dist + window_width))
+		{
+			// Move forward a certain distance
+			// turn left
+			// Too far from left wall, turning left
+            RCLCPP_INFO(this->get_logger(), "Too far from left wall");
+            log_record(scan_data_, "Too far from left wall");
+			prev_robot_pose_ = robot_pose_;
+			turtlebot3_state_num = TB3_LEFT_TURN;
+			confidence--;
+		} 
+		else
+		{
+			// If we're not too close to anything, but there is enough space infront, go forward
+            RCLCPP_INFO(this->get_logger(), "Within window, moving forward");
+            log_record(scan_data_, "Within window, moving forward");
+			confidence++;
+		}
+		
+	} else {
+		// If there is something in front, turn right
+        RCLCPP_INFO(this->get_logger(), "U TURN");
+        log_record(scan_data_, "U TURN");
+		prev_robot_pose_ = robot_pose_;
+		turtlebot3_state_num = TB3_RIGHT_TURN;
+		confidence = 0;
+	}
 
-            }
-            // If left wall is not detected, rotate and move forward
-            else 
-            {
-                
-                RCLCPP_INFO(this->get_logger(), " If left wall is not detected, rotate and move forward");
-                prev_robot_pose_ = robot_pose_;
-                
-                // If front wall is detected, rotated right
-                if (scan_data_[CENTER] < check_forward_dist)
-                {
-                    RCLCPP_INFO(this->get_logger(), " If front wall is detected, rotated right");
-                    turtlebot3_state_num = TB3_RIGHT_TURN;
-                }
-                // If the front wall is not detected, rotated left
-                else
-                {
-                    RCLCPP_INFO(this->get_logger(), "  If the front wall is not detected, rotated left,aaaa");
-                    rotate_and_forward = true;
-                    RCLCPP_INFO(this->get_logger(), std::to_string(rotate_and_forward));
-                    turtlebot3_state_num = TB3_LEFT_TURN;
-                    
-                }
-                
-                // After the rotate, do the move forward action immediately.
-                
-            }
+	if (confidence > MAX_LEVEL) confidence = MAX_LEVEL;
+	if (confidence < 0) confidence = 0;
+	
+	// Act on confidence level
+	if (confidence > LEFT_TURN_LEVEL) {
+		// FORWARD
+        RCLCPP_INFO(this->get_logger(), "Act on confidence level ==> Move forward");
+        log_record(scan_data_, "Act on confidence level ==> Move forward");
+        linear_velocity = LINEAR_VELOCITY;
+        angular_velocity = ANGULAR_VELOCITY;
+		update_cmd_vel(linear_velocity, 0.0);
+		turtlebot3_state_num = GET_TB3_DIRECTION;
 
-            break;
-
-        // Turtlebot is moving forward
-        case TB3_DRIVE_FORWARD:
-            // Keep moving forward until front wall is detected
-            if (scan_data_[CENTER] > check_forward_dist)
-            {
-                RCLCPP_INFO(this->get_logger(), "Keep moving forward until front wall is detected");
-                update_cmd_vel(LINEAR_VELOCITY, 0.0);
-                
-            }
-            else
-            {
-                turtlebot3_state_num = GET_TB3_DIRECTION;
-            }
-            break;
-
-        // Turtlebot is turning right currently
-        case TB3_RIGHT_TURN:
-            RCLCPP_INFO(this->get_logger(), "Turtlebot is turning right currently");
-            if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
-            {
-                RCLCPP_INFO(this->get_logger(), "Turtlebot is turning right currently");
-                turtlebot3_state_num = GET_TB3_DIRECTION;
-            }
-            else
-            {
-                update_cmd_vel(0.0, -(1/3) * (M_PI) * ANGULAR_VELOCITY);
-            }
-            break;
-
-        // Turtlebot is turning left currently
-        case TB3_LEFT_TURN:
-        RCLCPP_INFO(this->get_logger(), "Turtlebot is turning left currently");
-            if (fabs(prev_robot_pose_ - robot_pose_) >= escape_range)
-            {
-                turtlebot3_state_num = GET_TB3_DIRECTION;
-            }
-            else
-            {
-                // Check the rotate_and_forward flag, if after the rotation,
-                // move forward action should be made, set the state num into
-                // TB3_DRIVE_FORWARD.
-                update_cmd_vel(0.0, (1/3) * (M_PI) *ANGULAR_VELOCITY);
-                RCLCPP_INFO(this->get_logger(), std::to_string(rotate_and_forward));
-                if (rotate_and_forward == true)
-                {
-                    RCLCPP_INFO(this->get_logger(), "aaaaa");
-                    turtlebot3_state_num = TB3_DRIVE_FORWARD;
-                }
-            }
-            break;
-
-        default:
-            turtlebot3_state_num = GET_TB3_DIRECTION;
-            break;
-    }
+	} else if (confidence <= LEFT_TURN_LEVEL) {
+		// LEFT
+        RCLCPP_INFO(this->get_logger(), "Act on confidence level ==> Turn left");
+        log_record(scan_data_, "Act on confidence level ==> Turn left");
+        linear_velocity -= 0.05
+        angular_velocity += 0.05
+		update_cmd_vel(linear_velocity, angular_velocity);
+	}		
 }
 
 /*******************************************************************************
@@ -240,9 +226,9 @@ void WallFollower::update_callback()
 *******************************************************************************/
 int main(int argc, char ** argv)
 {
-    rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<WallFollower>());
-    rclcpp::shutdown();
+	rclcpp::init(argc, argv);
+	rclcpp::spin(std::make_shared<WallFollower>());
+	rclcpp::shutdown();
 
-    return 0;
+	return 0;
 }
