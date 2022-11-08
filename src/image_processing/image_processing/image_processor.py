@@ -62,8 +62,8 @@ class ImageSubscriber(Node):
     light_blue = np.array([14, 90, 95])
     dark_blue = np.array([60, 255, 255])
 
-    light_pink = np.array([128,38,56])
-    dark_pink = np.array([164,255,255])
+    light_pink = np.array([50,80,150])
+    dark_pink = np.array([179,255,255])
 
     light_green = np.array([38,23,45])
     dark_green = np.array([52,255,255])
@@ -78,7 +78,7 @@ class ImageSubscriber(Node):
 
     image_result = cv2.bitwise_or(blue_mask, pink_mask)
     image_result = cv2.bitwise_or(image_result, green_mask)
-    image_result = cv2.bitwise_or(green_mask, yellow_mask)
+    image_result = cv2.bitwise_or(image_result, yellow_mask)
 
     kernel = np.ones((3, 3), np.uint8)
     image_result = cv2.dilate(image_result, kernel, iterations=1)
