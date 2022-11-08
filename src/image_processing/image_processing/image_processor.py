@@ -8,8 +8,10 @@
   
 # Import the necessary libraries
 import rclpy # Python library for ROS 2
+import rclpy.qos
 from rclpy.node import Node # Handles the creation of nodes
 from sensor_msgs.msg import Image # Image is the message type
+from nav_msgs.msg import Odometry
 import cv2 # OpenCV library
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import numpy as np
@@ -24,7 +26,7 @@ class ImageSubscriber(Node):
     """
     # Initiate the Node class's constructor and give it a name
     super().__init__('image_subscriber')
-      
+    
     # Create the subscriber. This subscriber will receive an Image
     # from the video_frames topic. The queue size is 10 messages.
     self.subscription = self.create_subscription(
@@ -34,12 +36,25 @@ class ImageSubscriber(Node):
       self.listener_callback, 
       10)
     self.subscription # prevent unused variable warning
-      
     # Used to convert between ROS and OpenCV images
     self.br = CvBridge()
 
     self.objects = []
 
+    self.qos = rclpy.qos.QoSProfile(
+            reliability=rclpy.qos.QoSReliabilityPolicy.RMW_QOS_POLICY_RELIABILITY_BEST_EFFORT,
+            history=rclpy.qos.QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
+            depth=1
+        )
+    self.odmetry_subscription = self.create_subscription(
+      Odometry,
+      "odom",
+      callback=self.odometry_callback,
+      qos_profile=self.qos
+      )
+  
+  def odometry_callback(data):
+    print(data)
   
   # This funciton will helps to generate teh mask for object with different color
   # and return whether it is an object in the image
