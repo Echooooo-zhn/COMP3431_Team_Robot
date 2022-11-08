@@ -30,7 +30,8 @@
 #define CENTER 0
 #define LEFT   1
 #define OFF_LEFT 2
-#define RIGHT  3
+#define OFF_RIGHT  3
+#define RIGHT  4
 
 #define LINEAR_VELOCITY  0.03  // Working 0.06 // experimental 0.1
 #define ANGULAR_VELOCITY 0.15 // Working 0.3 // experimental 0.5
@@ -55,7 +56,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   // Variables
-  double scan_data_[3];
+  double scan_data_[5];
   int confidence;
 
   // ROS timer

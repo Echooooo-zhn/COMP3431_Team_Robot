@@ -32,6 +32,8 @@ WallFollower::WallFollower()
 	scan_data_[0] = 0.0;
 	scan_data_[1] = 0.0;
 	scan_data_[2] = 0.0;
+	scan_data_[3] = 0.0;
+	scan_data_[4] = 0.0;
 
 	confidence = START_LEVEL;
 
@@ -85,7 +87,7 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-	uint16_t scan_angle[4] = {0, 90, 45, 270};
+	uint16_t scan_angle[5] = {0, 90, 45, 135, 180};
 
 	RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
 
@@ -179,7 +181,15 @@ void WallFollower::update_callback()
 
 	if (confidence > RIGHT_TURN_LEVEL) {
 		// RIGHT
-		update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
+			//do a big right turn
+		if (scan_data_[OFF_RIGHT] > (check_side_dist + window_width)) {
+			update_cmd_vel(0.04, -1* ANGULAR_VELOCITY-0.1);
+		} else{
+				//do a small right turn
+			update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
+		}
+		
+		
 	} else if (confidence > LEFT_TURN_LEVEL) {
 		// FORWARD
 		update_cmd_vel(LINEAR_VELOCITY, 0.0);
