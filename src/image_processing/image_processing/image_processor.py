@@ -68,33 +68,94 @@ class ImageSubscriber(Node):
     kernel = np.ones((3, 3), np.uint8)
     image_result = cv2.dilate(image_result, kernel, iterations=1)
     
-    return image_result
+    return image_result, blue_mask, pink_mask, green_mask, yellow_mask
   
-  def detect_objects(self, image_result):
+  def determine_mask_color(self, blue_mask, pink_mask, green_mask, yellow_mask):
+    # MASK: [UPPER, LOWER]
+    PINK = 0
+    BLUE = 1
+    GREEN = 2
+    YELLOW = 3
+    
+    mask = []
+    detected_mask_y = None
+    
+    (blueNumLabels, blueLabels, blueStats, blueCentroids) = cv2.connectedComponentsWithStats(blue_mask, 4, cv2.CV_32S)
+    (pinkNumLabels, pinkLabels, pinkStats, pinkCentroids) = cv2.connectedComponentsWithStats(green_mask, 4, cv2.CV_32S)
+    (greenNumLabels, greenLabels, greenStats, greenCentroids) = cv2.connectedComponentsWithStats(pink_mask, 4, cv2.CV_32S)
+    (yellowNumLabels, yellowLabels, yellowStats, yellowCentroids) = cv2.connectedComponentsWithStats(yellow_mask, 4, cv2.CV_32S)
+    
+    for i in range(0, blueNumLabels):
+        if i != 0 and blueStats[i][4] > 100:
+          mask.append(BLUE)
+          detected_mask_y = blueCentroids[i][1]
+    
+    for i in range(0, pinkNumLabels):
+        if i != 0 and pinkStats[i][4] > 100:
+          if detected_mask_y == None:
+            mask.append(PINK)
+            detected_mask_y = blueCentroids[i][1]
+          elif detected_mask_y < blueCentroids[i][1]:
+            mask.append(PINK)
+            return mask
+          else:
+            return [PINK, BLUE]
+            
+    for i in range(0, greenNumLabels):
+        if i != 0 and greenStats[i][4] > 100:
+          if detected_mask_y == None:
+            mask.append(GREEN)
+            detected_mask_y = greenCentroids[i][1]
+          elif detected_mask_y < greenCentroids[i][1]:
+            mask.append(GREEN)
+            return mask
+          else:
+            return [GREEN, mask[0]]
+          
+    for i in range(0, yellowNumLabels):
+        if i != 0 and yellowStats[i][4] > 100:
+          if detected_mask_y == None:
+            mask.append(YELLOW)
+            detected_mask_y = yellowCentroids[i][1]
+          elif detected_mask_y < yellowCentroids[i][1]:
+            mask.append(YELLOW)
+            return mask
+          else:
+            return [YELLOW, mask[0]]
+          
+    return mask
+    
+    
+  
+  def detect_objects(self, image_result, blue_mask, pink_mask, green_mask, yellow_mask):
     output = cv2.connectedComponentsWithStats(image_result, 4, cv2.CV_32S)
     (numLabels, labels, stats, centroids) = output
+    
+
+    mask_color = self.determine_mask_color(blue_mask, pink_mask, green_mask, yellow_mask)
 
     cens = []
     objects = []
     for i in range(0, numLabels):
         if i != 0 and stats[i][4] > 150:
           cens.append(centroids[i])
-          objects.append({"x": stats[i][0], "y": stats[i][1], "width": stats[i][2], "height": stats[i][3], "area": stats[i][4]})
+          objects.append({"x": stats[i][0], "y": stats[i][1], "width": stats[i][2], "height": stats[i][3], "area": stats[i][4], "colors": mask_color})
 
     LEFT=0
     COMPLETE = 1
     RIGHT=2
+    
     detected_objs = []
     for i, obj in enumerate(objects):
       # In the image, object is too close to the left
       if obj["x"] == 0:
-          detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": LEFT})
+          detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": LEFT, "colors": obj["colors"]})
       else:
           # In the image, object is too close to the right
           if obj["x"] + obj["width"] == image_result.shape[1]:
-              detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": RIGHT})
+              detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": RIGHT, "colors": obj["colors"]})
           else:
-              detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": COMPLETE})
+              detected_objs.append({"centroid": (cens[i][0], cens[i][1]), "width": obj["width"], "height": obj["height"], "status": COMPLETE, "colors": obj["colors"]})
     return detected_objs
 
 
@@ -114,25 +175,12 @@ class ImageSubscriber(Node):
     # Convert BGR image to HSV
     hsv_frame = cv2.cvtColor(current_frame, cv2.COLOR_BGR2HSV)
 
-    image_with_mask = self.generate_mask(hsv_frame)
-    output = cv2.connectedComponentsWithStats(image_with_mask, 4, cv2.CV_32S)
-    (numLabels, labels, stats, centroids) = output
+    image_with_mask, blue_mask, pink_mask, green_mask, yellow_mask = self.generate_mask(hsv_frame)
 
-    self.objects = self.detect_objects(image_with_mask)
+    self.objects = self.detect_objects(image_with_mask, blue_mask, pink_mask, green_mask, yellow_mask)
 
     for obj in self.objects:
       cv2.drawMarker(image_with_mask, (int(obj['centroid'][0]),int(obj['centroid'][1])), (0,0,255),cv2.MARKER_SQUARE,15,2)
- 
-    # Print statistics for each blob (connected component)
-    # use these statistics to find the bounding box of each blob
-    # and to ine up laser scan with centroid of the blob
-    for i in range(1, numLabels):
-        x = stats[i, cv2.CC_STAT_LEFT]
-        y = stats[i, cv2.CC_STAT_TOP]
-        w = stats[i, cv2.CC_STAT_WIDTH]
-        h = stats[i, cv2.CC_STAT_HEIGHT]
-        area = stats[i, cv2.CC_STAT_AREA]
-        print(x, y, w, h, area)
 
     # Display camera image
     cv2.namedWindow("camera", cv2.WINDOW_NORMAL)
