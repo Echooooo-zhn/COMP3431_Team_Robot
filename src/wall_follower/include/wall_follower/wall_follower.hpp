@@ -56,25 +56,19 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   // Variables
+
+  // Stores the min value of each of the 7 ranges
   double scan_ranges[7];
+
+  // Stores the limit of each of the 7 ranges
   double limits[7];
+  
+  // Stores the front range that is too close for use in speed reduction
   int front_min_angle = 0;
-  int left_min_angle = 0;
 
-  // double forward_dist_limit = 0.5;
-	// double fleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 120) - 0.01;
-	// double mleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 105) - 0.01;
-	// double lleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 90) - 0.01;
-
-	// double ffeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 145) - 0.01;
-	// double mfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 140) - 0.01;
-	// double lfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 135) - 0.01;
-
-  double side_dist_limit = limits[LLEFT];
 	double window_width = 0.1;
 
   bool debug = true;
-  int debug_state = 0;
 
   // ROS timer
   rclcpp::TimerBase::SharedPtr update_timer_;
@@ -86,7 +80,6 @@ private:
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
   bool left_close();
   bool left_far();
-  //bool right_close();
   bool front_far();
   double min_non_zero(std::vector<float>);
 };
