@@ -28,12 +28,12 @@
 #define RAD2DEG (180.0 / M_PI)
 
 #define CENTER 0
-#define LEFT   1
+#define LEFT 1
 #define OFF_LEFT 2
-#define OFF_RIGHT  3
-#define RIGHT  4
+#define OFF_RIGHT 3
+#define RIGHT 4
 
-#define LINEAR_VELOCITY  0.03  // Working 0.06 // experimental 0.1
+#define LINEAR_VELOCITY 0.03  // Working 0.06 // experimental 0.1
 #define ANGULAR_VELOCITY 0.15 // Working 0.3 // experimental 0.5
 
 #define MAX_LEVEL 105
@@ -57,6 +57,7 @@ private:
 
   // Variables
   double scan_data_[5];
+  double scan_distance_[10];
   int confidence;
 
   // ROS timer
@@ -67,5 +68,8 @@ private:
   void update_cmd_vel(double linear, double angular);
   void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+
+  // helper function
+  bool detect_object_frontleft_zero_fourtyfive(double window_width);
 };
-#endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_
+#endif // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_

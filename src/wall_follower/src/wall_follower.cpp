@@ -24,7 +24,7 @@
 using namespace std::chrono_literals;
 
 WallFollower::WallFollower()
-: Node("wall_follower_node")
+	: Node("wall_follower_node")
 {
 	/************************************************************
 	** Initialise variables
@@ -47,11 +47,11 @@ WallFollower::WallFollower()
 
 	// Initialise subscribers
 	scan_sub_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-		"scan", \
-		rclcpp::SensorDataQoS(), \
+		"scan",
+		rclcpp::SensorDataQoS(),
 		std::bind(
-			&WallFollower::scan_callback, \
-			this, \
+			&WallFollower::scan_callback,
+			this,
 			std::placeholders::_1));
 	odom_sub_ = this->create_subscription<nav_msgs::msg::Odometry>(
 		"odom", qos, std::bind(&WallFollower::odom_callback, this, std::placeholders::_1));
@@ -82,7 +82,6 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 	tf2::Matrix3x3 m(q);
 	double roll, pitch, yaw;
 	m.getRPY(roll, pitch, yaw);
-
 }
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
@@ -91,7 +90,7 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 
 	RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
 
-	for (int num = 0; num < 3; num++)
+	for (int num = 0; num < 5; num++)
 	{
 		if (std::isinf(msg->ranges.at(scan_angle[num])))
 		{
@@ -100,6 +99,24 @@ void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr ms
 		else
 		{
 			scan_data_[num] = msg->ranges.at(scan_angle[num]);
+		}
+	}
+
+	// 0 - 45, every 5 degrees
+	// uint16_t scan_angle[5] = {0, 90, 45, 135, 180};
+
+	// RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
+
+	for (int num = 5; num <= 45; num += 5)
+	{
+
+		if (std::isinf(msg->ranges.at(num)))
+		{
+			scan_distance_[num / 5] = msg->range_max;
+		}
+		else
+		{
+			scan_distance_[num / 5] = msg->ranges.at(num);
 		}
 	}
 }
@@ -118,34 +135,37 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 ********************************************************************************/
 void WallFollower::update_callback()
 {
-	double check_forward_dist = 0.45; //working 0.45
+	double check_forward_dist = 0.45; // working 0.45
 
-	double check_side_dist = 0.2; //working 2
-	double window_width = 0.21; // working 0.21 // experimental 0.15
-		
+	double check_side_dist = 0.2; // working 2
+	double window_width = 0.21;	  // working 0.21 // experimental 0.15
+
 	// Measure and Change confidence level
 
-	if (confidence > MAX_LEVEL) confidence = MAX_LEVEL;
-	if (confidence < 0) confidence = 0;
+	if (confidence > MAX_LEVEL)
+		confidence = MAX_LEVEL;
+	if (confidence < 0)
+		confidence = 0;
 	RCLCPP_INFO(this->get_logger(), "Confidence: %d", confidence);
 
-	// Check if there is space in front 
-	if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
+	// Check if there is space in front
+	if (scan_data_[CENTER] > check_forward_dist || scan_data_[CENTER] == 0.0)
 	{
 		if (scan_data_[OFF_LEFT] < check_side_dist + 0.1 || scan_data_[OFF_LEFT] <= (check_side_dist - 0.3))
 		{
 			// Too close to left wall, turning right
 			RCLCPP_INFO(this->get_logger(), "Too close to left wall");
-			if (confidence < RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
+			if (confidence < RIGHT_TURN_LEVEL)
+				confidence = RIGHT_TURN_LEVEL;
 			confidence++;
 		}
 		else if (scan_data_[OFF_LEFT] <= (check_side_dist + 0.3))
 		{
 			// Sees left wall, add to confidence
 			confidence += 10;
-			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
+			if (confidence > RIGHT_TURN_LEVEL)
+				confidence = RIGHT_TURN_LEVEL;
 			RCLCPP_INFO(this->get_logger(), "Seeing left 45deg wall");
-			
 		}
 		else if (scan_data_[LEFT] > (check_side_dist + window_width))
 		{
@@ -154,9 +174,10 @@ void WallFollower::update_callback()
 			// turn left
 			// Too far from left wall, turning left
 			confidence--;
-			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
+			if (confidence > RIGHT_TURN_LEVEL)
+				confidence = RIGHT_TURN_LEVEL;
 			RCLCPP_INFO(this->get_logger(), "Too far from left wall");
-		} 
+		}
 		/*
 		else if (scan_data_[RIGHT] < check_side_dist)
 		{
@@ -167,33 +188,42 @@ void WallFollower::update_callback()
 		{
 			// If we're not too close to anything, but there is enough space infront, go forward
 			confidence++;
-			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
+			if (confidence > RIGHT_TURN_LEVEL)
+				confidence = RIGHT_TURN_LEVEL;
 			RCLCPP_INFO(this->get_logger(), "within window");
 		}
-		
-	} else {
+	}
+	else
+	{
 		// if (scan_data_[CENTER] < check_forward_dist && scan_data_[CENTER] != 0.0)
 		// If there is something in front, turn right
-		if (confidence < RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
+		if (confidence < RIGHT_TURN_LEVEL)
+			confidence = RIGHT_TURN_LEVEL;
 		confidence++;
 		RCLCPP_INFO(this->get_logger(), "U TURN");
 	}
 
-	if (confidence > RIGHT_TURN_LEVEL) {
+	if (confidence > RIGHT_TURN_LEVEL)
+	{
 		// RIGHT
-			//do a big right turn
-		if (scan_data_[OFF_RIGHT] > (check_side_dist + window_width)) {
-			update_cmd_vel(0.04, -1* ANGULAR_VELOCITY-0.1);
-		} else{
-				//do a small right turn
-			update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
+		// do a big right turn
+		if (scan_data_[OFF_RIGHT] > (check_side_dist + window_width))
+		{
+			update_cmd_vel(0.04, -1 * ANGULAR_VELOCITY - 0.1);
 		}
-		
-		
-	} else if (confidence > LEFT_TURN_LEVEL) {
+		else
+		{
+			// do a small right turn
+			update_cmd_vel(0.02, -1 * ANGULAR_VELOCITY - 0.1);
+		}
+	}
+	else if (confidence > LEFT_TURN_LEVEL)
+	{
 		// FORWARD
 		update_cmd_vel(LINEAR_VELOCITY, 0.0);
-	} else if (confidence <= LEFT_TURN_LEVEL) {
+	}
+	else if (confidence <= LEFT_TURN_LEVEL)
+	{
 		// LEFT
 		update_cmd_vel(0.0, ANGULAR_VELOCITY);
 	}
@@ -202,11 +232,25 @@ void WallFollower::update_callback()
 /*******************************************************************************
 ** Main
 *******************************************************************************/
-int main(int argc, char ** argv)
+int main(int argc, char **argv)
 {
 	rclcpp::init(argc, argv);
 	rclcpp::spin(std::make_shared<WallFollower>());
 	rclcpp::shutdown();
 
 	return 0;
+}
+
+// helper function
+// To_do: testing the window_width
+bool detect_object_frontleft_zero_fourtyfive(double window_width)
+{
+	for (int i = 0; i < 10; i++)
+	{
+		if (scan_distance_[i] <= window_width)
+		{
+			return true;
+		}
+	}
+	return false;
 }
