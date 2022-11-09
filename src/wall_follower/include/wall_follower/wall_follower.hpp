@@ -37,7 +37,7 @@
 #define LFEEL 6
 
 #define LINEAR_VELOCITY  0.2 // working 0.2
-#define ANGULAR_VELOCITY 0.6 * 2 // working 0.6
+#define ANGULAR_VELOCITY 0.6 // working 0.6
 
 #define NUM_SCANS 360
 
@@ -57,20 +57,23 @@ private:
 
   // Variables
   double scan_ranges[7];
+  double limits[7];
+  int front_min_angle = 0;
+  int left_min_angle = 0;
 
-  double forward_dist_limit = 0.5;
-	double fleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 120) - 0.01;
-	double mleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 105) - 0.01;
-	double lleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 90) - 0.01;
+  // double forward_dist_limit = 0.5;
+	// double fleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 120) - 0.01;
+	// double mleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 105) - 0.01;
+	// double lleft_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 90) - 0.01;
 
-	double ffeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 145) - 0.01;
-	double mfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 140) - 0.01;
-	double lfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 135) - 0.01;
+	// double ffeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 145) - 0.01;
+	// double mfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 140) - 0.01;
+	// double lfeeler_limit = (sin(DEG2RAD * 30) * forward_dist_limit) / sin(DEG2RAD * 135) - 0.01;
 
-  double side_dist_limit = lleft_limit;
+  double side_dist_limit = limits[LLEFT];
 	double window_width = 0.1;
 
-  bool debug = false;
+  bool debug = true;
   int debug_state = 0;
 
   // ROS timer
