@@ -39,8 +39,6 @@
 #define LINEAR_VELOCITY  0.2 // working 0.2
 #define ANGULAR_VELOCITY 0.6 // working 0.6
 
-#define NUM_SCANS 360
-
 class WallFollower : public rclcpp::Node
 {
 public:
