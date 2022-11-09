@@ -9,13 +9,15 @@
 # Import the necessary libraries
 import rclpy # Python library for ROS 2
 import rclpy.qos
-
+from geometry_msgs.msg import Quaternion
 from rclpy.node import Node # Handles the creation of nodes
 from sensor_msgs.msg import Image # Image is the message type
 from nav_msgs.msg import Odometry
 import cv2 # OpenCV library
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import numpy as np
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 import math
 from tf2_ros.transform_listener import TransformListener
 from tf2_ros.buffer import Buffer
@@ -34,7 +36,8 @@ class ImageSubscriber(Node):
     self.RIGHT=2
     self.CAMANGLE = 31.1
     self.REALSYLINDERWIDTH = 0.1
-
+    self.marker_list = MarkerArray()
+    self.marker_list.markers = []
     # Create the subscriber. This subscriber will receive an Image
     # from the video_frames topic. The queue size is 10 messages.
     self.subscription = self.create_subscription(
@@ -65,6 +68,33 @@ class ImageSubscriber(Node):
     
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
+    self.plot_publisher = rospy.Publisher('visualization_marker_array', MarkerArray)
+  
+  
+  def generate_marker(self, coordinate):
+        marker = Marker()
+        # marker.header.frame_id = "map"
+        marker.header.frame_id = "/map"
+        marker.type = marker.CYLINDER
+        marker.action = marker.ADD
+        marker.pose.orientation.x = 0
+        marker.pose.orientation.y = 0
+        marker.pose.orientation.z = 0
+        marker.pose.orientation.w = 0
+        marker.pose.position.x = coordinate[0]
+        marker.pose.position.y = coordinate[1]
+        marker.pose.position.z = coordinate[2]
+        # todo=
+        # marker.scale.x = 1
+        # marker.scale.y = 1
+        # marker.scale.z = 1
+        # marker.color.a = 0.4
+        # marker.color.r = 1 - val
+        # marker.color.g = val
+        # marker.color.b = 0.2
+        # marker.id = idx                                                                                                                                                                                                                                                                      scale: { x: 0.1, y: 0.1, z: 0.1 }, color : { a: 1.0, r: 0.0, g: 0.0, b: 1.0 } } ] }
+        self.marker_list.markers.append(marker)
+        self.plot_publisher.publish(self.marker_list)
   
   def odometry_callback(self, data):
     # print(data.pose.pose.position)
@@ -72,35 +102,54 @@ class ImageSubscriber(Node):
     if len(self.objects) == 0:
       return
 
-    a = data.pose.pose.position.x,
-    b= data.pose.pose.position.y,
-    c=data.pose.pose.orientation.z,
-    d=data.pose.pose.orientation.w
-    # print(a,b,c,d)
+    # a = data.pose.pose.orientation.x,
+    # b= data.pose.pose.orientation.y,
+    # c=data.pose.pose.orientation.z,
+    # d=data.pose.pose.orientation.w
+    # # print(a,b,c,d)
     
-    t = self.tf_buffer.lookup_transform(
+    transform = self.tf_buffer.lookup_transform(
     "camera_link",
     "odom",
     # "odom",
     time=rclpy.time.Time()).transform
-    print(t)
-    # print(t)
-    # for obj in self.objects:
-    #   if obj["status"] == self.COMPLETE:
-    #     xPos = obj["centroid"][0]
-    #     half_total = self.image_size[0] / 2.0
-    #     sideA = abs(xPos - half_total) 
-    #     sideB = half_total / math.tan(math.degrees(self.CAMANGLE))
-    #     cam_width = obj["width"]
-    #     # print(f"{sideA}   {sideB}  {cam_width}")
-    #     ratio = self.REALSYLINDERWIDTH / cam_width
-    #     real_sideA = ratio * sideA
-    #     real_sideB = ratio * sideB
+    
+    print(transform)
+    
+    # coordinate of box
+    obj_in_cam = [0, 0, 0]
+    
+    for obj in self.objects:
+      if obj["status"] == self.COMPLETE:
+        xPos = obj["centroid"][0]
+        half_total = self.image_size[0] / 2.0
+        sideA = abs(xPos - half_total) 
+        sideB = half_total / math.tan(math.degrees(self.CAMANGLE))
+        cam_width = obj["width"]
+        # print(f"{sideA}   {sideB}  {cam_width}")
+        ratio = self.REALSYLINDERWIDTH / cam_width
+        real_sideA = ratio * sideA
+        real_sideB = ratio * sideB
         
-    #     print(f"front line: {real_sideA}, distance: {real_sideB}")
-        
-        
-    #     break
+        print(f"front line: {real_sideA}, distance: {real_sideB}")
+        cam_x = real_sideB
+        cam_y = 0
+        if xPos > half_total:
+          cam_y = -real_sideA
+        else:
+          cam_y = real_sideA
+        obj_in_cam[0] = cam_x
+        obj_in_cam[1] = cam_y
+        # object in camera's frame: (cam_x, cam_y)
+    
+    # P = Quater (vector) * obj_in_cam + translation
+    translation = np.mat([transform.translation.x], [transform.translation], [transform.translation.z])
+    cam_coord = np.mat([obj_in_cam[0]], [obj_in_cam[1]], [obj_in_cam[2]],)
+    quaternion = [transform.quaternion.x, transform.quaternion.y, transform.quaternion.z,transform.quaternion.w, ]
+    r = R.from_quat(quaternion)
+    rotation_matrix = r.as_matrix()
+    final_coordinate = rotation_matrix * cam_coord + translation
+    self.generate_marker(final_coordinate)
 
   
   # This funciton will helps to generate teh mask for object with different color
