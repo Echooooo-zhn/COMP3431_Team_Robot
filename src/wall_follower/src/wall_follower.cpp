@@ -37,7 +37,7 @@ WallFollower::WallFollower()
 	scan_ranges[MFEEL] = 0.0;
 	scan_ranges[LFEEL] = 0.0;
 
-	limits[FRONT] = 0.5;
+	limits[FRONT] = 0.4;
 	limits[FLEFT] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 120) - 0.01;
 	limits[MLEFT] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 105) - 0.01;
 	limits[LLEFT] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 90) - 0.01;
