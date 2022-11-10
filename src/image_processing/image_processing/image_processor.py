@@ -69,7 +69,7 @@ class ImageSubscriber(Node):
     self.tf_buffer = Buffer()
     self.tf_listener = TransformListener(self.tf_buffer, self)
     self.plot_publisher = rospy.Publisher('visualization_marker_array', MarkerArray)
-  
+    self.marker_appearance = []
   
   def generate_marker(self, coordinate):
         marker = Marker()
@@ -84,6 +84,7 @@ class ImageSubscriber(Node):
         marker.pose.position.x = coordinate[0]
         marker.pose.position.y = coordinate[1]
         marker.pose.position.z = coordinate[2]
+        self.marker_appearance.append((coordinate[0], coordinate[1], coordinate[2]))
         # todo=
         # marker.scale.x = 1
         # marker.scale.y = 1
@@ -95,6 +96,12 @@ class ImageSubscriber(Node):
         # marker.id = idx                                                                                                                                                                                                                                                                      scale: { x: 0.1, y: 0.1, z: 0.1 }, color : { a: 1.0, r: 0.0, g: 0.0, b: 1.0 } } ] }
         self.marker_list.markers.append(marker)
         self.plot_publisher.publish(self.marker_list)
+  
+  def check_if_detected(self):
+    if len(self.objects) == 0:
+        return
+    
+    return
   
   def odometry_callback(self, data):
     # print(data.pose.pose.position)
