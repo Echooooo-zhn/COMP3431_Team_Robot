@@ -16,7 +16,6 @@ from nav_msgs.msg import Odometry
 import cv2 # OpenCV library
 from cv_bridge import CvBridge # Package to convert between ROS and OpenCV Images
 import numpy as np
-import numpy as np
 from scipy.spatial.transform import Rotation as R
 import math
 from tf2_ros.transform_listener import TransformListener
@@ -41,13 +40,13 @@ class ImageSubscriber(Node):
         self.marker_list.markers = []
         # Create the subscriber. This subscriber will receive an Image
         # from the video_frames topic. The queue size is 10 messages.
-        self.subscription = self.create_subscription(
-        Image, 
-        #    'video_frames', 
-        '/camera/image_raw/uncompressed', 
-        self.listener_callback, 
-        10)
-        self.subscription # prevent unused variable warning
+        # self.subscription = self.create_subscription(
+        # Image, 
+        # #    'video_frames', 
+        # '/camera/image_raw/uncompressed', 
+        # self.listener_callback, 
+        # 10)
+        # self.subscription # prevent unused variable warning
         # Used to convert between ROS and OpenCV images
         self.br = CvBridge()
 
@@ -77,47 +76,49 @@ class ImageSubscriber(Node):
         self.laser_catch = self.create_subscription(LaserScan, "/scan", 
                                                     callback=self.scan_callback,
                                                     qos_profile=self.qos)
+        print("--------")
     
     def scan_callback(self, data):
+        print("scan callback")
         self.laser_angles = {}
         for i in range(0, 30):
             self.laser_angles[i] = data.ranges[i]
         for i in range(330, 360):
             self.laser_angles[i] = data.ranges[i]
     
-    # test code
-    def new_calculation(self, alpha):
-        A_coordinate = [1,2,0]
-        B_coordinate = [1,0,0]
-        laser_scanned = self.laser_angles
-        # AB = math.sqrt((A_coordinate[0] - B_coordinate[0])**2 - (A_coordinate[1] - B_coordinate[1]) **2)
-        # hard cord by measurement
-        AB = 0.14
-        correct_laser_angle = -1
-        for i in range(1, min(31, int(math.degrees(alpha)) + 2)):
-            beta = i    
-            if alpha >= 0:
-                scanned_dist = laser_scanned[beta]
-            else:
-                scanned_dist = laser_scanned[360 - beta]
-            # if scanned_dist <= 0.0001:
-            #     continue    
-            beta = math.radians(i)
-            left = (math.cos(beta) - (math.sin(beta) / math.tan(alpha)))
-            BC = AB / (math.cos(beta) - (math.sin(beta) / math.tan(alpha)))
-            # match
-            # print(scanned_dist, BC)
-            print(f"BC{BC} dis{scanned_dist } {math.degrees(beta)} {math.degrees(alpha)}")
-            if i < 3 and abs(BC + 0.14 - scanned_dist) <= 0.01:
-                correct_laser_angle = i
-                break
+    # # test code
+    # def new_calculation(self, alpha):
+    #     A_coordinate = [1,2,0]
+    #     B_coordinate = [1,0,0]
+    #     laser_scanned = self.laser_angles
+    #     # AB = math.sqrt((A_coordinate[0] - B_coordinate[0])**2 - (A_coordinate[1] - B_coordinate[1]) **2)
+    #     # hard cord by measurement
+    #     AB = 0.14
+    #     correct_laser_angle = -1
+    #     for i in range(1, min(31, int(math.degrees(alpha)) + 2)):
+    #         beta = i    
+    #         if alpha >= 0:
+    #             scanned_dist = laser_scanned[beta]
+    #         else:
+    #             scanned_dist = laser_scanned[360 - beta]
+    #         # if scanned_dist <= 0.0001:
+    #         #     continue    
+    #         beta = math.radians(i)
+    #         left = (math.cos(beta) - (math.sin(beta) / math.tan(alpha)))
+    #         BC = AB / (math.cos(beta) - (math.sin(beta) / math.tan(alpha)))
+    #         # match
+    #         # print(scanned_dist, BC)
+    #         print(f"BC{BC} dis{scanned_dist } {math.degrees(beta)} {math.degrees(alpha)}")
+    #         if i < 3 and abs(BC + 0.14 - scanned_dist) <= 0.01:
+    #             correct_laser_angle = i
+    #             break
             
-            if (abs(BC - scanned_dist) <= 0.01):
-                correct_laser_angle = i
-                break
+    #         if (abs(BC - scanned_dist) <= 0.01):
+    #             correct_laser_angle = i
+    #             break
     
-        print(f"laser calculated angle: {(correct_laser_angle)}")
-        return
+    #     print(f"laser calculated angle: {(correct_laser_angle)}")
+    #     return
 
     def generate_marker(self, coordinate):
         coordinate[0] = float(coordinate[0])
@@ -158,21 +159,25 @@ class ImageSubscriber(Node):
         
         return
   
+    def transform_frame(self, source, target, translation, quaternion):
+        transform = self.tf_buffer.lookup_transform(target_frame=target, source_frame=source, time=rclpy.time.Time()).transform
+        print(transform)
+        translation[0] = translation[0] + transform.translation.x
+        translation[1] = translation[1] + transform.translation.y
+        translation[2] = translation[2] + transform.translation.z
+        quaternion[0] = quaternion[0] + transform.rotation.x
+        quaternion[1] = quaternion[1] + transform.rotation.y
+        quaternion[2] = quaternion[2] + transform.rotation.z
+        quaternion[3] = transform.rotation.w
+        return (translation, quaternion)
+
     def odometry_callback(self, data):
-        # print(data.pose.pose.position)
-        # print(self.objects)
+        
         if len(self.objects) == 0:
             return
-
-        # a = data.pose.pose.position.x
-        # b = data.pose.pose.position.y
-        # c = data.pose.pose.position.z
-        # # d=data.pose.pose.orientation.w
-        # print(a,b,c)
         
-        transform = self.tf_buffer.lookup_transform("camera_link","odom",time=rclpy.time.Time()).transform
+        return
         self.generate_marker([1,1,0])
-        # print(transform)
         
         # coordinate of box
         obj_in_cam = [0, 0, 0]
@@ -206,13 +211,20 @@ class ImageSubscriber(Node):
                 obj_in_cam[1] = cam_y
             # object in camera's frame: (cam_x, cam_y)
         return
+        translation = [0,0,0]
+        quaternion = [0,0,0,0]
+        translation, quaternion = self.transform_frame("base_link", "camera_link", translation, quaternion)
+        translation, quaternion = self.transform_frame("base_footprint", "base_link", translation, quaternion)
+        translation, quaternion = self.transform_frame("odom", "base_footprint", translation, quaternion)
+        print(translation, quaternion)
+      
         # P = Quater (vector) * obj_in_cam + translation
-        translation = np.mat([transform.translation.x], [transform.translation.y], [transform.translation.z])
+        translation_mat = np.mat([translation[0]], [translation[1]], [translation[2]])
         cam_coord = np.mat([obj_in_cam[0]], [obj_in_cam[1]], [obj_in_cam[2]],)
-        quaternion = [transform.quaternion.x, transform.quaternion.y, transform.quaternion.z,transform.quaternion.w, ]
+        quaternion = [quaternion[0], quaternion[1], quaternion[2],quaternion[3], ]
         r = R.from_quat(quaternion)
         rotation_matrix = r.as_matrix()
-        final_coordinate = rotation_matrix * cam_coord + translation
+        final_coordinate = rotation_matrix * cam_coord + translation_mat
         self.generate_marker(final_coordinate)
 
   
