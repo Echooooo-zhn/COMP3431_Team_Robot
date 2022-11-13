@@ -23,22 +23,21 @@
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
+#include <math.h>
 
 #define DEG2RAD (M_PI / 180.0)
 #define RAD2DEG (180.0 / M_PI)
 
-#define CENTER 0
-#define LEFT   1
-#define OFF_LEFT 2
-#define RIGHT  3
+#define FRONT 0
+#define FLEFT 1
+#define MLEFT 2
+#define LLEFT 3
+#define FFEEL 4
+#define MFEEL 5
+#define LFEEL 6
 
-#define LINEAR_VELOCITY  0.03  // Working 0.06 // experimental 0.1
-#define ANGULAR_VELOCITY 0.15 // Working 0.3 // experimental 0.5
-
-#define MAX_LEVEL 105
-#define START_LEVEL 70
-#define LEFT_TURN_LEVEL 30
-#define RIGHT_TURN_LEVEL 100
+#define LINEAR_VELOCITY  0.16 // working 0.2
+#define ANGULAR_VELOCITY 0.5 // working 0.6
 
 class WallFollower : public rclcpp::Node
 {
@@ -55,8 +54,19 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
 
   // Variables
-  double scan_data_[3];
-  int confidence;
+
+  // Stores the min value of each of the 7 ranges
+  double scan_ranges[7];
+
+  // Stores the limit of each of the 7 ranges
+  double limits[7];
+  
+  // Stores the front range that is too close for use in speed reduction
+  int front_min_angle = 0;
+
+	double window_width = 0.1;
+
+  bool debug = true;
 
   // ROS timer
   rclcpp::TimerBase::SharedPtr update_timer_;
@@ -66,5 +76,13 @@ private:
   void update_cmd_vel(double linear, double angular);
   void scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg);
+  bool left_close();
+  bool left_far();
+  bool front_far();
+  double min_non_zero(std::vector<float>);
+  double speed_reduction = 1.0;
+  double angle_reduction = 0.0;
+  void limit_speed();
+  void limit_angular();
 };
 #endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_

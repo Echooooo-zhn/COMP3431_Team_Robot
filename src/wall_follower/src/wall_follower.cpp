@@ -29,11 +29,21 @@ WallFollower::WallFollower()
 	/************************************************************
 	** Initialise variables
 	************************************************************/
-	scan_data_[0] = 0.0;
-	scan_data_[1] = 0.0;
-	scan_data_[2] = 0.0;
+	scan_ranges[FRONT] = 0.0;
+	scan_ranges[FLEFT] = 0.0;
+	scan_ranges[MLEFT] = 0.0;
+	scan_ranges[LLEFT] = 0.0;
+	scan_ranges[FFEEL] = 0.0;
+	scan_ranges[MFEEL] = 0.0;
+	scan_ranges[LFEEL] = 0.0;
 
-	confidence = START_LEVEL;
+	limits[FRONT] = 0.4;
+	limits[FLEFT] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 120) - 0.01;
+	limits[MLEFT] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 105) - 0.01;
+	limits[LLEFT] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 90) - 0.01;
+	limits[FFEEL] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 145) - 0.01;
+	limits[MFEEL] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 140) - 0.01;
+	limits[LFEEL] = (sin(DEG2RAD * 30) * limits[FRONT]) / sin(DEG2RAD * 135) - 0.01;
 
 	/************************************************************
 	** Initialise ROS publishers and subscribers
@@ -85,19 +95,69 @@ void WallFollower::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
 void WallFollower::scan_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
-	uint16_t scan_angle[4] = {0, 90, 45, 270};
+	// Setting up scan data 
+	// Creating vectors to store a range of scan data
 
-	RCLCPP_INFO(this->get_logger(), "Num scans: %d", sizeof(msg->ranges));
+	// Creating front range
+	std::vector<float>::const_iterator it_first = msg->ranges.begin();
+	std::vector<float>::const_iterator it_last = msg->ranges.begin() + 30;
+	std::vector<float> forward_ranges(it_first, it_last);
+	it_first = msg->ranges.begin() + 330;
+	it_last = msg->ranges.end();
+	std::vector<float> temp_forward_ranges(it_first, it_last);
+	forward_ranges.insert(forward_ranges.end(), temp_forward_ranges.begin(), temp_forward_ranges.end());
 
-	for (int num = 0; num < 3; num++)
+	// Creating left ranges
+	it_first = msg->ranges.begin() + 45;
+	it_last = msg->ranges.begin() + 90;
+	std::vector<float> left_ranges(it_first, it_last);
+	// We split the left ranges into 3 sections for a more accuracy
+	// For example if we find the minimum of the data scanned at 45 to 85 degrees,
+	// and since the bot is a square we know that the distance from the edge of the
+	// turtlebot to the wall at 85 degrees is shorter than 45 degrees. So in the
+	// case that the minimum value in the range is at 45 degrees the bot will closer 
+	// than the intended side limit before it turns. This is simply fixed by splitting
+	// the ranges in as many parts such that the difference between the start and end
+	// degrees is negligible. For maximum effectiveness each degree would have their own
+	// side limit however this is not necessary as only a few splits would be more than
+	// enough for the difference to become negligible.
+	it_first = left_ranges.begin();
+	it_last = left_ranges.begin() + 15;
+	std::vector<float> fleft_ranges(it_first, it_last);
+	it_first = left_ranges.begin() + 16;
+	it_last = left_ranges.begin() + 30;
+	std::vector<float> mleft_ranges(it_first, it_last);
+	it_first = left_ranges.begin() + 31;
+	it_last = left_ranges.end();
+	std::vector<float> lleft_ranges(it_first, it_last);
+
+	// Creating feeler ranges
+	// Making ranges from 30 - 45 degrees splitting into 3 because the limit difference is greatest per degree at these ranges
+	it_first = msg->ranges.begin() + 31;
+	it_last = msg->ranges.begin() + 35;
+	std::vector<float> ffeeler_ranges(it_first, it_last);
+	it_first = msg->ranges.begin() + 36;
+	it_last = msg->ranges.begin() + 40;
+	std::vector<float> mfeeler_ranges(it_first, it_last);
+	it_first = msg->ranges.begin() + 41;
+	it_last = msg->ranges.begin() + 45;
+	std::vector<float> lfeeler_ranges(it_first, it_last);
+
+	// Storing the min scan value of each range in an array
+	scan_ranges[FRONT] = min_non_zero(forward_ranges);
+	scan_ranges[FLEFT] = min_non_zero(fleft_ranges);
+	scan_ranges[MLEFT] = min_non_zero(mleft_ranges);
+	scan_ranges[LLEFT] = min_non_zero(lleft_ranges);
+	scan_ranges[FFEEL] = min_non_zero(ffeeler_ranges);
+	scan_ranges[MFEEL] = min_non_zero(mfeeler_ranges);
+	scan_ranges[LFEEL] = min_non_zero(lfeeler_ranges);
+
+	// Value bounding
+	for (int i = 0; i < 7; i++)
 	{
-		if (std::isinf(msg->ranges.at(scan_angle[num])))
+		if (std::isinf(scan_ranges[i]))
 		{
-			scan_data_[num] = msg->range_max;
-		}
-		else
-		{
-			scan_data_[num] = msg->ranges.at(scan_angle[num]);
+			scan_ranges[i] = msg->range_max;
 		}
 	}
 }
@@ -108,6 +168,10 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 	cmd_vel.linear.x = linear;
 	cmd_vel.angular.z = angular;
 
+	if (cmd_vel.angular.z > 1){
+		RCLCPP_INFO(this->get_logger(), "%lf", cmd_vel.angular.z);
+	}
+
 	cmd_vel_pub_->publish(cmd_vel);
 }
 
@@ -116,77 +180,131 @@ void WallFollower::update_cmd_vel(double linear, double angular)
 ********************************************************************************/
 void WallFollower::update_callback()
 {
-	double check_forward_dist = 0.45; //working 0.45
-
-	double check_side_dist = 0.2; //working 2
-	double window_width = 0.21; // working 0.21 // experimental 0.15
-		
-	// Measure and Change confidence level
-
-	if (confidence > MAX_LEVEL) confidence = MAX_LEVEL;
-	if (confidence < 0) confidence = 0;
-	RCLCPP_INFO(this->get_logger(), "Confidence: %d", confidence);
-
 	// Check if there is space in front 
-	if (scan_data_[CENTER] > check_forward_dist ||  scan_data_[CENTER] == 0.0)
-	{
-		if (scan_data_[OFF_LEFT] < check_side_dist + 0.1 || scan_data_[OFF_LEFT] <= (check_side_dist - 0.3))
-		{
+	if (front_far()) {
+		if (left_close()) {
 			// Too close to left wall, turning right
-			RCLCPP_INFO(this->get_logger(), "Too close to left wall");
-			if (confidence < RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
-			confidence++;
-		}
-		else if (scan_data_[OFF_LEFT] <= (check_side_dist + 0.3))
-		{
-			// Sees left wall, add to confidence
-			confidence += 10;
-			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
-			RCLCPP_INFO(this->get_logger(), "Seeing left 45deg wall");
-			
-		}
-		else if (scan_data_[LEFT] > (check_side_dist + window_width))
-		{
-
-			// Move forward a certain distance
-			// turn left
+			if (debug) {
+				RCLCPP_INFO(this->get_logger(), "Too close to the left wall");
+				RCLCPP_INFO(this->get_logger(), "FLEFT: %lf < %lf", scan_ranges[FLEFT], limits[FLEFT]);
+				RCLCPP_INFO(this->get_logger(), "MLEFT: %lf < %lf", scan_ranges[MLEFT], limits[MLEFT]);
+				RCLCPP_INFO(this->get_logger(), "LLEFT: %lf < %lf\n", scan_ranges[LLEFT], limits[LLEFT]);
+			}
+			speed_reduction -= 0.01;
+			limit_speed();
+			angle_reduction -= 0.04;
+			limit_angular();
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
+		} else if (left_far()) {
 			// Too far from left wall, turning left
-			confidence--;
-			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
-			RCLCPP_INFO(this->get_logger(), "Too far from left wall");
-		} 
-		/*
-		else if (scan_data_[RIGHT] < check_side_dist)
-		{
-			// Too close to right wall, turning left
-			RCLCPP_INFO(this->get_logger(), "Too close to right wall");
-		}*/
-		else
-		{
+			if (debug) {
+				RCLCPP_INFO(this->get_logger(), "Too far from left wall");
+				RCLCPP_INFO(this->get_logger(), "FLEFT: %lf > %lf", scan_ranges[FLEFT], limits[FLEFT] + window_width);
+				RCLCPP_INFO(this->get_logger(), "MLEFT: %lf > %lf", scan_ranges[MLEFT], limits[MLEFT] + window_width);
+				RCLCPP_INFO(this->get_logger(), "LLEFT: %lf > %lf\n", scan_ranges[LLEFT], limits[LLEFT] + window_width);
+			}
+			// The linear velocity modifier may need some adjusting, seems to work at half speed.
+			speed_reduction -= 0.01;
+			limit_speed();
+			angle_reduction += 0.04;
+			limit_angular();
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
+		} else {
 			// If we're not too close to anything, but there is enough space infront, go forward
-			confidence++;
-			if (confidence > RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
-			RCLCPP_INFO(this->get_logger(), "within window");
-		}
-		
-	} else {
-		// if (scan_data_[CENTER] < check_forward_dist && scan_data_[CENTER] != 0.0)
-		// If there is something in front, turn right
-		if (confidence < RIGHT_TURN_LEVEL) confidence = RIGHT_TURN_LEVEL;
-		confidence++;
-		RCLCPP_INFO(this->get_logger(), "U TURN");
-	}
+			if (debug) {
+				RCLCPP_INFO(this->get_logger(), "Moving Forward");
+				RCLCPP_INFO(this->get_logger(), "FRONT: %lf > %lf", scan_ranges[FRONT], limits[FRONT]);
+				RCLCPP_INFO(this->get_logger(), "FFEEL: %lf > %lf", scan_ranges[FFEEL], limits[FFEEL]);
+				RCLCPP_INFO(this->get_logger(), "MFEEL: %lf > %lf", scan_ranges[MFEEL], limits[MFEEL]);
+				RCLCPP_INFO(this->get_logger(), "LFEEL: %lf > %lf\n", scan_ranges[LFEEL], limits[LFEEL]);
+			}
+			speed_reduction += 0.01;
+			limit_speed();
+			
+			if (angle_reduction > 0.0) {
+				angle_reduction -= 0.05;
+			} else if (angle_reduction < 0.0) {
+				angle_reduction += 0.05;
+			}
 
-	if (confidence > RIGHT_TURN_LEVEL) {
-		// RIGHT
-		update_cmd_vel(0.02, -1* ANGULAR_VELOCITY-0.1);
-	} else if (confidence > LEFT_TURN_LEVEL) {
-		// FORWARD
-		update_cmd_vel(LINEAR_VELOCITY, 0.0);
-	} else if (confidence <= LEFT_TURN_LEVEL) {
-		// LEFT
-		update_cmd_vel(0.0, ANGULAR_VELOCITY);
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
+		}
+	} else {
+		// No space infront
+		if (debug) {
+			RCLCPP_INFO(this->get_logger(), "Forward blocked, turning right");
+			RCLCPP_INFO(this->get_logger(), "FRONT: %lf < %lf", scan_ranges[FRONT], limits[FRONT]);
+			RCLCPP_INFO(this->get_logger(), "FFEEL: %lf < %lf", scan_ranges[FFEEL], limits[FFEEL]);
+			RCLCPP_INFO(this->get_logger(), "MFEEL: %lf < %lf", scan_ranges[MFEEL], limits[MFEEL]);
+			RCLCPP_INFO(this->get_logger(), "LFEEL: %lf < %lf\n", scan_ranges[LFEEL], limits[LFEEL]);
+		}
+
+		// Turn right whilst slowing linear speed based on distance from wall using formula below
+		speed_reduction = (scan_ranges[front_min_angle] - (limits[FRONT] * 0.5)) / limits[front_min_angle];
+		if (speed_reduction <= 0.0) speed_reduction = 0.0;
+
+		angle_reduction -= 0.04;
+		limit_angular();
+
+		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
 	}
+}
+
+bool WallFollower::left_close() {
+	return scan_ranges[FLEFT] < limits[FLEFT] ||
+	 	   scan_ranges[MLEFT] < limits[MLEFT] ||
+		   scan_ranges[LLEFT] < limits[LLEFT];
+}
+
+bool WallFollower::left_far() {
+	return scan_ranges[FLEFT] >= limits[FLEFT] + window_width ||
+		   scan_ranges[MLEFT] >= limits[MLEFT] + window_width ||
+		   scan_ranges[LLEFT] >= limits[LLEFT] + window_width;
+}
+
+void WallFollower::limit_speed() {
+	if (speed_reduction >= 1.0)
+		speed_reduction = 1.0;
+
+	if (speed_reduction <= 0.4)
+		speed_reduction = 0.4;
+}
+
+void WallFollower::limit_angular() {
+	if (angle_reduction >= 1.0)
+		angle_reduction = 1.0;
+
+	if (angle_reduction <= -1.0)
+		angle_reduction = -1.0;
+}
+
+bool WallFollower::front_far() {
+	if (scan_ranges[FRONT] <= limits[FRONT]) {
+		front_min_angle = FRONT;
+		return false;
+	} else if (scan_ranges[FFEEL] <= limits[FFEEL]) {
+		front_min_angle = FFEEL;
+		return false;
+	} else if (scan_ranges[MFEEL] <= limits[MFEEL]) {
+		front_min_angle = MFEEL;
+		return false;
+	} else if (scan_ranges[LFEEL] <= limits[LFEEL]) {
+		front_min_angle = LFEEL;
+		return false;
+	} else {
+		front_min_angle = -1;
+		return true;
+	}
+}
+
+double WallFollower::min_non_zero(std::vector<float> v) {
+	double min = 3.5;
+	for (auto item : v) {
+		if (item != 0.0 && item < min) {
+			min = item;
+		}
+	}
+	return min;
 }
 
 /*******************************************************************************
