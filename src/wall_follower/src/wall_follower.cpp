@@ -190,7 +190,11 @@ void WallFollower::update_callback()
 				RCLCPP_INFO(this->get_logger(), "MLEFT: %lf < %lf", scan_ranges[MLEFT], limits[MLEFT]);
 				RCLCPP_INFO(this->get_logger(), "LLEFT: %lf < %lf\n", scan_ranges[LLEFT], limits[LLEFT]);
 			}
-			update_cmd_vel(LINEAR_VELOCITY, -1 * ANGULAR_VELOCITY);
+			speed_reduction -= 0.01;
+			limit_speed();
+			angle_reduction -= 0.04;
+			limit_angular();
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
 		} else if (left_far()) {
 			// Too far from left wall, turning left
 			if (debug) {
@@ -200,7 +204,11 @@ void WallFollower::update_callback()
 				RCLCPP_INFO(this->get_logger(), "LLEFT: %lf > %lf\n", scan_ranges[LLEFT], limits[LLEFT] + window_width);
 			}
 			// The linear velocity modifier may need some adjusting, seems to work at half speed.
-			update_cmd_vel(LINEAR_VELOCITY * 0.5, ANGULAR_VELOCITY);
+			speed_reduction -= 0.01;
+			limit_speed();
+			angle_reduction += 0.04;
+			limit_angular();
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
 		} else {
 			// If we're not too close to anything, but there is enough space infront, go forward
 			if (debug) {
@@ -210,7 +218,16 @@ void WallFollower::update_callback()
 				RCLCPP_INFO(this->get_logger(), "MFEEL: %lf > %lf", scan_ranges[MFEEL], limits[MFEEL]);
 				RCLCPP_INFO(this->get_logger(), "LFEEL: %lf > %lf\n", scan_ranges[LFEEL], limits[LFEEL]);
 			}
-			update_cmd_vel(LINEAR_VELOCITY, 0);
+			speed_reduction += 0.01;
+			limit_speed();
+			
+			if (angle_reduction > 0.0) {
+				angle_reduction -= 0.05;
+			} else if (angle_reduction < 0.0) {
+				angle_reduction += 0.05;
+			}
+
+			update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
 		}
 	} else {
 		// No space infront
@@ -223,9 +240,13 @@ void WallFollower::update_callback()
 		}
 
 		// Turn right whilst slowing linear speed based on distance from wall using formula below
-		auto speed_reduction = (scan_ranges[front_min_angle] - (limits[FRONT] * 0.5)) / limits[front_min_angle];
-		if (speed_reduction < 0.0) {speed_reduction = 0.0;}
-		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, -1 * ANGULAR_VELOCITY);
+		speed_reduction = (scan_ranges[front_min_angle] - (limits[FRONT] * 0.5)) / limits[front_min_angle];
+		if (speed_reduction <= 0.0) speed_reduction = 0.0;
+
+		angle_reduction -= 0.04;
+		limit_angular();
+
+		update_cmd_vel(LINEAR_VELOCITY * speed_reduction, angle_reduction * ANGULAR_VELOCITY);
 	}
 }
 
@@ -239,6 +260,22 @@ bool WallFollower::left_far() {
 	return scan_ranges[FLEFT] >= limits[FLEFT] + window_width ||
 		   scan_ranges[MLEFT] >= limits[MLEFT] + window_width ||
 		   scan_ranges[LLEFT] >= limits[LLEFT] + window_width;
+}
+
+void WallFollower::limit_speed() {
+	if (speed_reduction >= 1.0)
+		speed_reduction = 1.0;
+
+	if (speed_reduction <= 0.4)
+		speed_reduction = 0.4;
+}
+
+void WallFollower::limit_angular() {
+	if (angle_reduction >= 1.0)
+		angle_reduction = 1.0;
+
+	if (angle_reduction <= -1.0)
+		angle_reduction = -1.0;
 }
 
 bool WallFollower::front_far() {

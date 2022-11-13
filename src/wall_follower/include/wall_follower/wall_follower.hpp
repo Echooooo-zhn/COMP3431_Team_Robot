@@ -80,5 +80,9 @@ private:
   bool left_far();
   bool front_far();
   double min_non_zero(std::vector<float>);
+  double speed_reduction = 1.0;
+  double angle_reduction = 0.0;
+  void limit_speed();
+  void limit_angular();
 };
 #endif  // TURTLEBOT3_GAZEBO__TURTLEBOT3_DRIVE_HPP_
