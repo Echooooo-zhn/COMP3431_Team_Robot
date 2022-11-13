@@ -94,7 +94,7 @@ class ImageSubscriber(Node):
     def check_whether_occur(self, point):
       for appeared in self.coordinate_appeared:
         if math.sqrt((point[0] - appeared[0])**2 + \
-          (point[1] - appeared[1])**2 + (point[2] - appeared[2])**2) <= 0.1:
+          (point[1] - appeared[1])**2 + (point[2] - appeared[2])**2) <= 2:
           return True
       return False
     
@@ -138,7 +138,7 @@ class ImageSubscriber(Node):
         coordinate[2] = float(coordinate[2])
         if self.check_whether_occur(coordinate):
           return
-        
+        print(f"Draw this: {coordinate}")
         marker = Marker()
         # marker.header.frame_id = "map"
         marker.header.frame_id = "/odom"
@@ -216,7 +216,7 @@ class ImageSubscriber(Node):
                 # self.new_calculation(math.atan(sideA / sideB))
                 # print(math.degrees(math.atan(sideA / sideB)))
                 cam_width = obj["width"]
-                print(f"{sideA}   {sideB}  {cam_width}")
+                # print(f"{sideA}   {sideB}  {cam_width}")
                 ratio = self.REALSYLINDERWIDTH / cam_width
                 real_sideA = ratio * sideA
                 real_sideB = ratio * sideB
@@ -243,7 +243,9 @@ class ImageSubscriber(Node):
         final_coordinate[0] = rotation[0] + translation[0]
         final_coordinate[1] = rotation[1] + translation[1]
         final_coordinate[2] = rotation[2] + translation[2]
-        if obj["colors"][0] == self.PINK:
+        if len(obj["colors"]) == 0:
+          color = self.PINK
+        elif obj["colors"][0] == self.PINK:
           color = obj["colors"][1]
         else:
           color = obj["colors"][0]
@@ -345,7 +347,6 @@ class ImageSubscriber(Node):
           if i != 0 and stats[i][4] > 150:
             cens.append(centroids[i])
             objects.append({"x": stats[i][0], "y": stats[i][1], "width": stats[i][2], "height": stats[i][3], "area": stats[i][4], "colors": mask_color})
-
       LEFT=0
       COMPLETE = 1
       RIGHT=2
