@@ -65,12 +65,12 @@ class ImageSubscriber(Node):
             history=rclpy.qos.QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             depth=1
             )
-        self.odmetry_subscription = self.create_subscription(
-        Odometry,
-        "odom",
-        callback=self.odometry_callback,
-        qos_profile=self.qos
-        )
+        # self.odmetry_subscription = self.create_subscription(
+        # Odometry,
+        # "odom",
+        # callback=self.odometry_callback,
+        # qos_profile=self.qos
+        # )
         # transform lisnter
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -94,7 +94,7 @@ class ImageSubscriber(Node):
     def check_whether_occur(self, point):
       for appeared in self.coordinate_appeared:
         if math.sqrt((point[0] - appeared[0])**2 + \
-          (point[1] - appeared[1])**2 + (point[2] - appeared[2])**2) <= 2:
+          (point[1] - appeared[1])**2 + (point[2] - appeared[2])**2) <= 0.6:
           return True
       return False
     
@@ -131,31 +131,41 @@ class ImageSubscriber(Node):
     
     #     print(f"laser calculated angle: {(correct_laser_angle)}")
     #     return
-
-    def generate_marker(self, coordinate, color):
+    def add_new_point(self, coordinate, color):
         coordinate[0] = float(coordinate[0])
         coordinate[1] = float(coordinate[1])
         coordinate[2] = float(coordinate[2])
         if self.check_whether_occur(coordinate):
           return
-        print(f"Draw this: {coordinate}")
+        self.coordinate_appeared.append(coordinate)
+        self.marker_list.markers.clear()
+        id = 0
+        for coordinate in self.coordinate_appeared:
+          id +=1
+          marker = self.generate_marker(coordinate, color, id)
+          self.marker_list.markers.append(marker)
+        print(f"-----------Current length{len(self.coordinate_appeared)}----------")
+        self.plot_publisher.publish(self.marker_list)
+    
+    def generate_marker(self, coordinate, color, id):
+        # print(f"Draw this: {coordinate}")
         marker = Marker()
         # marker.header.frame_id = "map"
-        marker.header.frame_id = "/odom"
+        marker.header.frame_id = "/map"
+        marker.id = id
         marker.type = marker.CYLINDER
         marker.action = marker.ADD
         marker.pose.orientation.x = 0.0
         marker.pose.orientation.y = 0.0
         marker.pose.orientation.z = 0.0
-        marker.pose.orientation.w = 0.0
+        marker.pose.orientation.w = 1.0
         marker.pose.position.x = float(coordinate[0])
         marker.pose.position.y = float(coordinate[1])
         marker.pose.position.z = float(coordinate[2])
-        self.marker_appearance.append((coordinate[0], coordinate[1], coordinate[2]))
         # todo=
         marker.scale.x = 0.14
         marker.scale.y = 0.14
-        marker.scale.z = 0.3
+        marker.scale.z = 10.0
         marker.color.a = 0.4
         if color == self.YELLOW:
           rgb = (255,234,0)
@@ -166,23 +176,7 @@ class ImageSubscriber(Node):
         marker.color.r = rgb[0] / 255.0
         marker.color.g = rgb[1] / 255.0
         marker.color.b = rgb[2] / 255.0
-        # marker.id = idx                
-        # scale: { x: 0.1, y: 0.1, z: 0.1 }, color : { a: 1.0, r: 0.0, g: 0.0, b: 1.0 } } ] }
-        
-        print(f"-----------------Draw------------{len(self.marker_list.markers)}-------------")
-
-        # test code
-        # if len(self.marker_list.markers) < 2:
-        # self.marker_list.markers.clear()
-        self.coordinate_appeared.append(coordinate)
-        self.marker_list.markers.append(marker)
-        self.plot_publisher.publish(self.marker_list)
-  
-    def check_if_detected(self):
-        if len(self.objects) == 0:
-            return
-        
-        return
+        return marker
   
     def transform_frame(self, target, source , translation, quaternion):
         transform = self.tf_buffer.lookup_transform(target_frame=target, source_frame=source, time=rclpy.time.Time()).transform
@@ -196,60 +190,58 @@ class ImageSubscriber(Node):
         quaternion[3] = quaternion[3] + transform.rotation.z
         return (translation, quaternion)
 
-    def odometry_callback(self, data):
+    def draw_cylinder(self):
         if len(self.objects) == 0:
             return
         
         # coordinate of box
         obj_in_cam = [0, 0, 0]
         
-        for obj in self.objects:
-            if obj["status"] == self.COMPLETE:
-                print("Once")
-                xPos = obj["centroid"][0]
-                # half_total = self.image_size[0] / 2.0
-                half_total = 230
-                sideA = abs(xPos - half_total) 
-                sideB = half_total / math.tan(math.radians(self.CAMANGLE))
-                # print(f"sideA: {sideA} sideB: {sideB}")
-                # print(f"xpos: {xPos} half:{half_total}")
-                # self.new_calculation(math.atan(sideA / sideB))
-                # print(math.degrees(math.atan(sideA / sideB)))
-                cam_width = obj["width"]
-                # print(f"{sideA}   {sideB}  {cam_width}")
-                ratio = self.REALSYLINDERWIDTH / cam_width
-                real_sideA = ratio * sideA
-                real_sideB = ratio * sideB
-                
-                # print(f"front line: {real_sideA}, distance: {real_sideB}")
-                cam_x = real_sideB
-                cam_y = 0
-                if xPos > half_total:
-                    cam_y = -real_sideA
-                else:
-                    cam_y = real_sideA
-                obj_in_cam[0] = cam_x
-                obj_in_cam[1] = cam_y
-            # object in camera's frame: (cam_x, cam_y)
-        translation = [0,0,0]
-        quaternion = [1,0,0,0]
-        # translation, quaternion = self.transform_frame("camera_link", "odom", translation, quaternion)
-        # translation, quaternion = self.transform_frame("base_footprint", "base_link", translation, quaternion)
-        translation, quaternion = self.transform_frame("odom", "camera_link", translation, quaternion)
-        # print(translation, quaternion)
-        my_quater = Quaternion(quaternion[0], quaternion[1], quaternion[2],quaternion[3])
-        rotation = my_quater.rotate(obj_in_cam)
-        final_coordinate = [0,0,0]
-        final_coordinate[0] = rotation[0] + translation[0]
-        final_coordinate[1] = rotation[1] + translation[1]
-        final_coordinate[2] = rotation[2] + translation[2]
-        if len(obj["colors"]) == 0:
-          color = self.PINK
-        elif obj["colors"][0] == self.PINK:
-          color = obj["colors"][1]
-        else:
-          color = obj["colors"][0]
-        self.generate_marker(final_coordinate, color)
+        obj = self.objects[0]
+        if obj["status"] == self.COMPLETE and obj["width"] > 35.0:
+          # print("Once")
+          xPos = obj["centroid"][0]
+          # half_total = self.image_size[0] / 2.0
+          half_total = 230
+          sideA = abs(xPos - half_total) 
+          sideB = half_total / math.tan(math.radians(self.CAMANGLE))
+          # print(f"sideA: {sideA} sideB: {sideB}")
+          # print(f"xpos: {xPos} half:{half_total}")
+          # self.new_calculation(math.atan(sideA / sideB))
+          # print(math.degrees(math.atan(sideA / sideB)))
+          cam_width = obj["width"]
+          ratio = self.REALSYLINDERWIDTH / cam_width
+          real_sideA = ratio * sideA
+          real_sideB = ratio * sideB
+          
+          print(f"{real_sideA}   {real_sideB}  {cam_width}")
+          cam_x = real_sideB
+          cam_y = 0
+          if xPos > half_total:
+              cam_y = -real_sideA
+          else:
+              cam_y = real_sideA
+          obj_in_cam[0] = cam_x
+          obj_in_cam[1] = cam_y
+      # object in camera's frame: (cam_x, cam_y)
+          translation = [0,0,0]
+          quaternion = [1,0,0,0]
+          translation, quaternion = self.transform_frame("map", "camera_link", translation, quaternion)
+          # print(translation, quaternion)
+          my_quater = Quaternion(quaternion[0], quaternion[1], quaternion[2],quaternion[3])
+          rotation = my_quater.rotate(obj_in_cam)
+          final_coordinate = [0,0,0]
+          final_coordinate[0] = rotation[0] + translation[0]
+          final_coordinate[1] = rotation[1] + translation[1]
+          final_coordinate[2] = rotation[2] + translation[2]
+          if len(obj["colors"]) < 2:
+            color = self.PINK
+          elif obj["colors"][0] == self.PINK:
+            color = obj["colors"][1]
+          else:
+            color = obj["colors"][0]
+          print(f"coordinate{final_coordinate}")
+          self.add_new_point(final_coordinate, color)
 
   
   # This funciton will helps to generate teh mask for object with different color
@@ -370,7 +362,7 @@ class ImageSubscriber(Node):
       Callback function.
       """
       # Display the message on the console
-      self.get_logger().info('Receiving video frame')
+      # self.get_logger().info('Receiving video frame')
   
       # Convert ROS Image message to OpenCV image
       current_frame = self.br.imgmsg_to_cv2(data)
@@ -385,6 +377,8 @@ class ImageSubscriber(Node):
       image_with_mask, blue_mask, pink_mask, green_mask, yellow_mask = self.generate_mask(hsv_frame)
 
       self.objects = self.detect_objects(image_with_mask, blue_mask, pink_mask, green_mask, yellow_mask)
+
+      self.draw_cylinder()
 
       for obj in self.objects:
         cv2.drawMarker(image_with_mask, (int(obj['centroid'][0]),int(obj['centroid'][1])), (0,0,255),cv2.MARKER_SQUARE,15,2)
