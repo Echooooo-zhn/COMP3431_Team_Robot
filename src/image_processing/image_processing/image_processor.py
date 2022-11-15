@@ -43,7 +43,6 @@ class ImageSubscriber(Node):
         self.REALSYLINDERWIDTH = 0.14
         self.marker_list = MarkerArray()
         self.marker_list.markers = []
-        # self.coordinate_appeared = []
         # Create the subscriber. This subscriber will receive an Image
         # from the video_frames topic. The queue size is 10 messages.
         self.subscription = self.create_subscription(
@@ -65,12 +64,6 @@ class ImageSubscriber(Node):
             history=rclpy.qos.QoSHistoryPolicy.RMW_QOS_POLICY_HISTORY_KEEP_LAST,
             depth=1
             )
-        # self.odmetry_subscription = self.create_subscription(
-        # Odometry,
-        # "odom",
-        # callback=self.odometry_callback,
-        # qos_profile=self.qos
-        # )
         # transform lisnter
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -156,7 +149,6 @@ class ImageSubscriber(Node):
         marker.pose.position.x = float(coordinate[0])
         marker.pose.position.y = float(coordinate[1])
         marker.pose.position.z = float(coordinate[2]) + 0.1
-        # todo=
         marker.scale.x = 0.14
         marker.scale.y = 0.14
         marker.scale.z = 0.2
@@ -175,9 +167,7 @@ class ImageSubscriber(Node):
         self.marker_list.markers.append(marker)
 
         # up cylinder
-        # down cylinder
         marker = Marker()
-        # marker.header.frame_id = "map"
         marker.header.frame_id = "/map"
         marker.id = len(self.marker_list.markers) + 1
         marker.type = marker.CYLINDER
@@ -189,7 +179,6 @@ class ImageSubscriber(Node):
         marker.pose.position.x = float(coordinate[0])
         marker.pose.position.y = float(coordinate[1])
         marker.pose.position.z = float(coordinate[2]) + 0.3
-        # todo=
         marker.scale.x = 0.14
         marker.scale.y = 0.14
         marker.scale.z = 0.2
@@ -211,7 +200,6 @@ class ImageSubscriber(Node):
     def transform_frame(self, target, source , translation, quaternion):
         try:
           transform = self.tf_buffer.lookup_transform(target_frame=target, source_frame=source, time=rclpy.time.Time()).transform
-          # print(transform)
           translation[0] = translation[0] + transform.translation.x
           translation[1] = translation[1] + transform.translation.y
           translation[2] = translation[2] + transform.translation.z
@@ -231,26 +219,20 @@ class ImageSubscriber(Node):
         obj_in_cam = [0, 0, 0]
         
         obj = self.objects[0]
-        if obj["status"] == self.COMPLETE and obj["width"] > 24:
+        if obj["status"] == self.COMPLETE and obj["width"] > 10:
           # print("Once")
           xPos = obj["centroid"][0]
           half_total = self.image_size[0] / 2.0
-          # half_total = 230
           sideA = abs(xPos - half_total) 
           sideB = half_total / math.tan(math.radians(self.CAMANGLE))
-          # second_B = ()
-          
-          
-           
-          # print(f"sideA: {sideA} sideB: {sideB}")
-          print(f"xpos: {xPos} half:{half_total}")
-          # self.new_calculation(math.atan(sideA / sideB))
-          # print(math.degrees(math.atan(sideA / sideB)))
+          # print(f"xpos: {xPos} half:{half_total}")
           cam_width = obj["width"]
           ratio = self.REALSYLINDERWIDTH / cam_width
           real_sideA = ratio * sideA
           real_sideB = ratio * sideB
           real_distance = math.sqrt(real_sideA**2 + real_sideB**2) 
+          if real_distance > 0.6:
+            return
           print(f"REAL{real_sideA}   {real_sideB} {real_distance} {cam_width} {self.image_size[0]}")
           cam_x = real_sideB
           cam_y = 0
@@ -266,7 +248,6 @@ class ImageSubscriber(Node):
           translation, quaternion = self.transform_frame("map", "camera_link", translation, quaternion)
           if len(translation) != 3:
             return
-          # print(translation, quaternion)
           my_quater = Quaternion(quaternion[0], quaternion[1], quaternion[2],quaternion[3])
           rotation = my_quater.rotate(obj_in_cam)
           final_coordinate = [0,0,0]
