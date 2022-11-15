@@ -248,7 +248,7 @@ class ImageSubscriber(Node):
   # and return whether it is an object in the image
     def generate_mask(self, hsv_frame):
       light_blue = np.array([14, 90, 95])
-      dark_blue = np.array([60, 255, 255])
+      dark_blue = np.array([37, 255, 255])
 
       light_pink = np.array([50,80,150])
       dark_pink = np.array([179,255,255])
@@ -259,29 +259,40 @@ class ImageSubscriber(Node):
       light_yellow = np.array([94,135,90])
       dark_yellow = np.array([130,255,255])
 
+      kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(3,3))
       blue_mask = cv2.inRange(hsv_frame, light_blue, dark_blue)
+      blue_mask = cv2.morphologyEx(blue_mask, cv2.MORPH_OPEN, kernel,iterations=1)
       pink_mask = cv2.inRange(hsv_frame, light_pink, dark_pink)
+      pink_mask = cv2.morphologyEx(pink_mask, cv2.MORPH_OPEN, kernel,iterations=1)
       green_mask = cv2.inRange(hsv_frame, light_green, dark_green)
+      green_mask = cv2.morphologyEx(green_mask, cv2.MORPH_OPEN, kernel,iterations=1)
       yellow_mask = cv2.inRange(hsv_frame, light_yellow, dark_yellow)
+      yellow_mask = cv2.morphologyEx(yellow_mask, cv2.MORPH_OPEN, kernel,iterations=1)
 
       image_result = cv2.bitwise_or(blue_mask, pink_mask)
       image_result = cv2.bitwise_or(image_result, green_mask)
       image_result = cv2.bitwise_or(image_result, yellow_mask)
 
+      image_result = cv2.morphologyEx(image_result, cv2.MORPH_OPEN, kernel,iterations=1)
       kernel = np.ones((3, 3), np.uint8)
       image_result = cv2.dilate(image_result, kernel, iterations=1)
-      
+    
       return image_result, blue_mask, pink_mask, green_mask, yellow_mask
     
-    def determine_mask_color(self, blue_mask, pink_mask, green_mask, yellow_mask):
+    def determine_mask_color(self, image_result, blue_mask, pink_mask, green_mask, yellow_mask):
       # MASK: [UPPER, LOWER]
       
       mask = []
       detected_mask_y = None
       
+      blue_mask = cv2.bitwise_and(blue_mask, image_result)
+      green_mask = cv2.bitwise_and(green_mask, image_result)
+      blue_mask = cv2.bitwise_and(blue_mask, image_result)
+      pink_mask = cv2.bitwise_and(pink_mask, image_result)
+      
       (blueNumLabels, blueLabels, blueStats, blueCentroids) = cv2.connectedComponentsWithStats(blue_mask, 4, cv2.CV_32S)
-      (pinkNumLabels, pinkLabels, pinkStats, pinkCentroids) = cv2.connectedComponentsWithStats(green_mask, 4, cv2.CV_32S)
-      (greenNumLabels, greenLabels, greenStats, greenCentroids) = cv2.connectedComponentsWithStats(pink_mask, 4, cv2.CV_32S)
+      (pinkNumLabels, pinkLabels, pinkStats, pinkCentroids) = cv2.connectedComponentsWithStats(pink_mask, 4, cv2.CV_32S)
+      (greenNumLabels, greenLabels, greenStats, greenCentroids) = cv2.connectedComponentsWithStats(green_mask, 4, cv2.CV_32S)
       (yellowNumLabels, yellowLabels, yellowStats, yellowCentroids) = cv2.connectedComponentsWithStats(yellow_mask, 4, cv2.CV_32S)
       
       for i in range(0, blueNumLabels):
@@ -327,18 +338,22 @@ class ImageSubscriber(Node):
       
     
     def detect_objects(self, image_result, blue_mask, pink_mask, green_mask, yellow_mask):
+      
       output = cv2.connectedComponentsWithStats(image_result, 4, cv2.CV_32S)
       (numLabels, labels, stats, centroids) = output
       
 
-      mask_color = self.determine_mask_color(blue_mask, pink_mask, green_mask, yellow_mask)
+      mask_color = self.determine_mask_color(image_result, blue_mask, pink_mask, green_mask, yellow_mask)
 
       cens = []
       objects = []
+      # y_min = 1000
       for i in range(0, numLabels):
           if i != 0 and stats[i][4] > 150:
+            # y_min = min(stats[i][1], y_min)
             cens.append(centroids[i])
             objects.append({"x": stats[i][0], "y": stats[i][1], "width": stats[i][2], "height": stats[i][3], "area": stats[i][4], "colors": mask_color})
+      
       LEFT=0
       COMPLETE = 1
       RIGHT=2

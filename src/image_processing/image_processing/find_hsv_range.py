@@ -1,11 +1,3 @@
-'''
-Author: Echooooo-zhn haonanZHONG17@outlook.com
-Date: 2022-11-01 01:14:34
-LastEditors: Echooooo-zhn haonanZHONG17@outlook.com
-LastEditTime: 2022-11-04 15:49:17
-FilePath: \COMP3431_Team_Robot\src\image_processing\image_processing\find_hsv_range.py
-Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
-'''
 #finding hsv range of target object(pen)
 import cv2
 import numpy as np
@@ -33,7 +25,7 @@ cv2.createTrackbar("L - V", "Trackbars", 0, 255, nothing)
 cv2.createTrackbar("U - H", "Trackbars", 179, 179, nothing)
 cv2.createTrackbar("U - S", "Trackbars", 255, 255, nothing)
 cv2.createTrackbar("U - V", "Trackbars", 255, 255, nothing)
- 
+
 while True:
     
     # Start reading the webcam feed frame by frame.
@@ -41,7 +33,7 @@ while True:
     # if not ret:
     #     break
     # Flip the frame horizontally (Not required)
-    # frame = cv2.flip( frame, 1 ) 
+    # frame = cv2.flip( frame, 1 )
     
     # Convert the BGR image to HSV image.
     frame = cv2.imread('PINK&BLUE.jpg', -1)
@@ -96,3 +88,4 @@ while True:
 # Release the camera & destroy the windows.    
 # cap.release()
 cv2.destroyAllWindows()
+    
