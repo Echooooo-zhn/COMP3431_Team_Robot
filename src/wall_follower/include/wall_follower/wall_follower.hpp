@@ -36,8 +36,8 @@
 #define MFEEL 5
 #define LFEEL 6
 
-#define LINEAR_VELOCITY  0.16 // working 0.2
-#define ANGULAR_VELOCITY 0.5 // working 0.6
+#define LINEAR_VELOCITY  0.1 // working 0.2
+#define ANGULAR_VELOCITY 0.3 // working 0.6
 
 class WallFollower : public rclcpp::Node
 {
