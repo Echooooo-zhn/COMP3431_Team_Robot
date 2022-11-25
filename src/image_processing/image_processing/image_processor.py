@@ -83,11 +83,20 @@ class ImageSubscriber(Node):
         for i in range(330, 360):
             self.laser_angles[i] = data.ranges[i]
     
-    def check_whether_occur(self, point):
+    def check_whether_occur(self, point, new_color):
       for marker in self.marker_list.markers:
         if math.sqrt((point[0] - marker.pose.position.x)**2 + \
-          (point[1] - marker.pose.position.y)**2 + (point[2] - marker.pose.position.z)**2) <= 0.6:
-          return True
+          (point[1] - marker.pose.position.y)**2) <= 0.5:
+          r = marker.color.r * 255
+          g = marker.color.g * 255
+          b = marker.color.b * 255
+          
+          if new_color == self.BLUE and abs(r) <= 0.1 and abs(g - 191) <= 0.1 and abs(b - 255) < 0.1:
+            return True
+          elif new_color == self.YELLOW and abs(r - 255) <= 0.1 and abs(g - 234) <= 0.1 and abs(b ) < 0.1:
+            return True
+          elif new_color == self.GREEN and abs(r) <= 0.1 and abs(g - 100) <= 0.1 and abs(b) < 0.1:
+            return True
       return False
     
     # # test code
@@ -127,8 +136,12 @@ class ImageSubscriber(Node):
         coordinate[0] = float(coordinate[0])
         coordinate[1] = float(coordinate[1])
         coordinate[2] = float(coordinate[2])
-        if self.check_whether_occur(coordinate):
-          return
+        print("add_new_point")
+        if self.check_whether_occur(coordinate, color):
+          return     
+        
+        
+        print("add_new_point2")
         self.generate_marker(coordinate, color, special_color_up)
         print(f"-----------Current length{len(self.marker_list.markers)}----------")
         self.plot_publisher.publish(self.marker_list)
@@ -231,8 +244,10 @@ class ImageSubscriber(Node):
           real_sideA = ratio * sideA
           real_sideB = ratio * sideB
           real_distance = math.sqrt(real_sideA**2 + real_sideB**2) 
-          if real_distance > 0.6:
+          print("line 236")
+          if real_distance > 0.7:
             return
+          print("line 238")
           print(f"REAL{real_sideA}   {real_sideB} {real_distance} {cam_width} {self.image_size[0]}")
           cam_x = real_sideB
           cam_y = 0
@@ -246,8 +261,10 @@ class ImageSubscriber(Node):
           translation = [0,0,0]
           quaternion = [1,0,0,0]
           translation, quaternion = self.transform_frame("map", "camera_link", translation, quaternion)
+          print("line 252")
           if len(translation) != 3:
             return
+          print("line 254")
           my_quater = Quaternion(quaternion[0], quaternion[1], quaternion[2],quaternion[3])
           rotation = my_quater.rotate(obj_in_cam)
           final_coordinate = [0,0,0]
