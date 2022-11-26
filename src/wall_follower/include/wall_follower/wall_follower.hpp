@@ -36,8 +36,8 @@
 #define MFEEL 5
 #define LFEEL 6
 
-#define LINEAR_VELOCITY  0.1 // working 0.2
-#define ANGULAR_VELOCITY 0.3 // working 0.6
+#define LINEAR_VELOCITY  0.2 // working 0.2
+#define ANGULAR_VELOCITY 0.6 // working 0.6
 
 class WallFollower : public rclcpp::Node
 {
@@ -79,7 +79,7 @@ private:
   bool left_close();
   bool left_far();
   bool front_far();
-  double min_non_zero(std::vector<float>);
+  double min_non_zero(std::vector<float> &);
   double speed_reduction = 1.0;
   double angle_reduction = 0.0;
   void limit_speed();
