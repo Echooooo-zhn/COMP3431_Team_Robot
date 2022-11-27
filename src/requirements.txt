@@ -1,8 +1,4 @@
-ament_copyright==0.9.6
-ament_flake8==0.9.6
-ament_pep257==0.9.6
-launch_ros==0.11.6
-numpy==1.17.4
+numpy==1.23.5
 opencv_python==4.6.0.66
 pyquaternion==0.9.9
 pytest==4.6.9
